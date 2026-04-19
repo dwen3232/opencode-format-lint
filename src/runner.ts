@@ -1,0 +1,71 @@
+import fs from "fs";
+import path from "path";
+import type { ToolDef } from "./schemas";
+import { shell } from "./shell";
+
+// TODO: this seems weird on second thought
+export type RunToolFn = (
+  filePath: string,
+  name: string,
+  def: ToolDef,
+  isFormatter: boolean,
+) => Promise<string | null>;
+
+export function findRoot(filePath: string, markers: string[]): string | null {
+  if (markers.length === 0) return null;
+  let dir = path.dirname(path.resolve(filePath));
+  const root = path.parse(dir).root;
+  while (true) {
+    for (const marker of markers) {
+      if (fs.existsSync(path.join(dir, marker))) return dir;
+    }
+    if (dir === root) return null;
+    dir = path.dirname(dir);
+  }
+}
+
+export async function runTool(
+  filePath: string,
+  name: string,
+  def: ToolDef,
+  isFormatter: boolean,
+): Promise<string | null> {
+  const markers = def.markers ?? [];
+  const require_markers = def.require_markers ?? false;
+
+  let cwd: string;
+  const foundRoot = findRoot(filePath, markers);
+  if (foundRoot) {
+    cwd = foundRoot;
+  } else if (require_markers) {
+    return null;
+  } else {
+    cwd = process.cwd();
+  }
+
+  const cmd = def.cmd ?? name;
+  const args = [...(def.args ?? []), filePath];
+
+  const $ = shell.get();
+  const result = await $`${cmd} ${args}`
+    .cwd(cwd)
+    .env(def.env)
+    .quiet()
+    .nothrow();
+
+  if (isFormatter) {
+    if (result.exitCode !== 0 && result.stderr.toString().trim()) {
+      return `[${name}] ${result.stderr.toString().trim()}`;
+    }
+    return null;
+  } else {
+    if (result.exitCode !== 0) {
+      const output =
+        result.stdout.toString().trim() || result.stderr.toString().trim();
+      return output
+        ? `[${name}] ${output}`
+        : `[${name}] exit code ${result.exitCode}`;
+    }
+    return null;
+  }
+}
