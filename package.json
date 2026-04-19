@@ -1,0 +1,40 @@
+{
+  "name": "opencode-format-lint",
+  "version": "0.1.0",
+  "description": "OpenCode plugin that auto-formats and lints files after each agent turn",
+  "type": "module",
+  "main": "./dist/index.js",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "bun build src/index.ts --outdir dist --target bun",
+    "prepublishOnly": "bun run build"
+  },
+  "keywords": [
+    "opencode",
+    "plugin",
+    "format",
+    "lint",
+    "prettier",
+    "eslint"
+  ],
+  "license": "MIT",
+  "peerDependencies": {
+    "@opencode-ai/plugin": ">=1.0.0"
+  },
+  "devDependencies": {
+    "@opencode-ai/plugin": "^1.4.0",
+    "@opencode-ai/sdk": "^1.4.0",
+    "@types/node": "^22.0.0",
+    "typescript": "^5.0.0"
+  }
+}
