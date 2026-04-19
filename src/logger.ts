@@ -5,6 +5,10 @@ type LogFn = (
   extra?: Record<string, unknown>,
 ) => void;
 
+/**
+ * Global logger singleton that defaults to stderr until OpenCode injects its
+ * native logging backend during plugin initialization.
+ */
 export class Logger {
   private _log: LogFn = (level, msg) =>
     process.stderr.write(`[opencode-format-lint] ${level}: ${msg}\n`);

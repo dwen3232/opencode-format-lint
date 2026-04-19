@@ -1,7 +1,7 @@
 import type { Plugin } from "@opencode-ai/plugin";
 import type { Event } from "@opencode-ai/sdk/v2";
 import { loadConfig, buildExtensionToToolsMap } from "./config";
-import { runTool } from "./runner";
+import { executeToolDef } from "./runner";
 import { formatFiles, lintFiles, buildLintReport } from "./processor";
 import {
   DEFAULT_FORMATTER_EXTENSIONS,
@@ -10,6 +10,10 @@ import {
 import { logger } from "./logger";
 import { shell } from "./shell";
 
+/**
+ * OpenCode plugin entrypoint. Tracks edited files during a turn, then formats
+ * and lints them once when the parent session becomes idle.
+ */
 export const CodefmtPlugin: Plugin = async ({ client, $, directory }) => {
   // setting singletons to move plugin constants to global scope
   logger.setBackend((level, message, extra) =>
@@ -20,6 +24,11 @@ export const CodefmtPlugin: Plugin = async ({ client, $, directory }) => {
   shell.setBackend($);
 
   const config = loadConfig(directory);
+
+  // OPENCODE TODO: this seems really weird to do, can we just get rid of the `kind` param, then just
+  // return both mappings? also, i'm not sure about the value of passing in the default mapping into the func,
+  // I feel like it's fine to just read it in from global scope. We want to be functional, but it's okay to read
+  // globals sometimes
   const formatterExtensionToToolsMap = buildExtensionToToolsMap(
     "formatters",
     config,
@@ -77,14 +86,14 @@ export const CodefmtPlugin: Plugin = async ({ client, $, directory }) => {
         fileList,
         formatterExtensionToToolsMap,
         config,
-        runTool,
+        executeToolDef,
       );
 
       const errors = await lintFiles(
         fileList,
         linterExtensionToToolsMap,
         config,
-        runTool,
+        executeToolDef,
       );
 
       if (errors.length > 0) {

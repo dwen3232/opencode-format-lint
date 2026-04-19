@@ -3,7 +3,7 @@ import path from "path";
 import type { ToolDef } from "./schemas";
 import { shell } from "./shell";
 
-// TODO: this seems weird on second thought
+// TODO: this seems weird, let's remove it. There's only one way to run a tool, let's not abstract like this
 export type RunToolFn = (
   filePath: string,
   name: string,
@@ -11,6 +11,10 @@ export type RunToolFn = (
   isFormatter: boolean,
 ) => Promise<string | null>;
 
+/**
+ * Walks upward from a file to find the nearest directory containing any of the
+ * given marker files.
+ */
 export function findRoot(filePath: string, markers: string[]): string | null {
   if (markers.length === 0) return null;
   let dir = path.dirname(path.resolve(filePath));
@@ -24,7 +28,11 @@ export function findRoot(filePath: string, markers: string[]): string | null {
   }
 }
 
-export async function runTool(
+/**
+ * Executes a formatter or linter for a single file and normalizes the result
+ * into either `null` or a user-facing error string.
+ */
+export async function executeToolDef(
   filePath: string,
   name: string,
   def: ToolDef,

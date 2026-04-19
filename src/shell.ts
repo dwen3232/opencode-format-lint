@@ -2,6 +2,10 @@ import type { PluginInput } from "@opencode-ai/plugin";
 
 export type BunShell = PluginInput["$"];
 
+/**
+ * Raised when tool execution is attempted before the Bun shell backend has
+ * been injected by the plugin entrypoint.
+ */
 export class ShellNotInitializedError extends Error {
   constructor() {
     super(
@@ -10,6 +14,10 @@ export class ShellNotInitializedError extends Error {
   }
 }
 
+/**
+ * Global shell singleton that stores OpenCode's injected Bun shell instance so
+ * lower-level modules can execute commands without threading `$` everywhere.
+ */
 export class Shell {
   private _shell: BunShell | null = null;
 

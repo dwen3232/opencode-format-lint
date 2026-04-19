@@ -7,6 +7,10 @@ import { logger } from "./logger";
 
 const CONFIG_NAME = "codefmt.json";
 
+/**
+ * Loads the first valid codefmt config, preferring project-local config over
+ * the user-level fallback.
+ */
 export function loadConfig(directory: string): CodefmtConfig {
   const locations = [
     path.join(directory, ".opencode", CONFIG_NAME),
@@ -32,12 +36,17 @@ export function loadConfig(directory: string): CodefmtConfig {
   return {};
 }
 
+/**
+ * Inverts the registry's tool-to-extensions mapping into the runtime
+ * extension-to-tools mapping, then applies user overrides per extension.
+ */
 export function buildExtensionToToolsMap(
   kind: "formatters" | "linters",
   config: CodefmtConfig,
   defaultExtensionToToolsMap: Record<string, string[]>,
 ): Record<string, string[]> {
   const extensionToToolsMap: Record<string, string[]> = {};
+  // OPENCODE TODO: no double for loops, can we do this functionaly?
   for (const [toolName, exts] of Object.entries(defaultExtensionToToolsMap)) {
     for (const ext of exts) {
       if (!extensionToToolsMap[ext]) extensionToToolsMap[ext] = [];
@@ -54,7 +63,11 @@ export function buildExtensionToToolsMap(
   return extensionToToolsMap;
 }
 
-export function resolveDef(
+/**
+ * Resolves a tool definition by merging built-in defaults with any user
+ * override for the same tool name.
+ */
+export function resolveToolDef(
   name: string,
   kind: "formatters" | "linters",
   config: CodefmtConfig,

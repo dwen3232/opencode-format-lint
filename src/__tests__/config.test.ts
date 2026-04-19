@@ -1,5 +1,9 @@
 import { describe, test, expect, vi, afterEach } from "vitest";
-import { buildExtensionToToolsMap, resolveDef, loadConfig } from "../config";
+import {
+  buildExtensionToToolsMap,
+  resolveToolDef,
+  loadConfig,
+} from "../config";
 import {
   FORMATTER_DEFAULTS,
   LINTER_DEFAULTS,
@@ -92,7 +96,7 @@ describe("buildExtensionToToolsMap", () => {
 
 describe("resolveDef", () => {
   test("returns registry defaults when no user override exists", () => {
-    const result = resolveDef("prettier", "formatters", {});
+    const result = resolveToolDef("prettier", "formatters", {});
     expect(result).toEqual(FORMATTER_DEFAULTS["prettier"]);
   });
 
@@ -102,7 +106,7 @@ describe("resolveDef", () => {
         prettier: { args: ["--write", "--single-quote"] },
       },
     };
-    const result = resolveDef("prettier", "formatters", config);
+    const result = resolveToolDef("prettier", "formatters", config);
     expect(result.args).toEqual(["--write", "--single-quote"]);
     expect(result.markers).toEqual(FORMATTER_DEFAULTS["prettier"]!.markers);
   });
@@ -113,7 +117,7 @@ describe("resolveDef", () => {
         ruff: { require_markers: true },
       },
     };
-    const result = resolveDef("ruff", "linters", config);
+    const result = resolveToolDef("ruff", "linters", config);
     expect(result.require_markers).toBe(true);
     expect(result.args).toEqual(LINTER_DEFAULTS["ruff"]!.args);
   });
@@ -124,12 +128,12 @@ describe("resolveDef", () => {
         prettier: { cmd: "/usr/local/bin/prettier" },
       },
     };
-    const result = resolveDef("prettier", "formatters", config);
+    const result = resolveToolDef("prettier", "formatters", config);
     expect(result.cmd).toBe("/usr/local/bin/prettier");
   });
 
   test("returns an empty object for an unknown tool with no override", () => {
-    const result = resolveDef("unknown-tool", "formatters", {});
+    const result = resolveToolDef("unknown-tool", "formatters", {});
     expect(result).toEqual({});
   });
 
@@ -139,7 +143,7 @@ describe("resolveDef", () => {
         "my-formatter": { cmd: "my-fmt", args: ["--fix"] },
       },
     };
-    const result = resolveDef("my-formatter", "formatters", config);
+    const result = resolveToolDef("my-formatter", "formatters", config);
     expect(result).toEqual({ cmd: "my-fmt", args: ["--fix"] });
   });
 });

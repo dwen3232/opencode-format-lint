@@ -5,7 +5,7 @@ import type { BunShellOutput } from "@opencode-ai/plugin/dist/shell.js";
 vi.mock("fs");
 import fs from "fs";
 
-import { findRoot, runTool } from "../runner";
+import { findRoot, executeToolDef } from "../runner";
 import { shell } from "../shell";
 
 afterEach(() => {
@@ -117,7 +117,7 @@ describe("runTool", () => {
   test("returns null when require_markers is true and no marker is found", async () => {
     vi.spyOn(fs, "existsSync").mockReturnValue(false);
 
-    const result = await runTool(
+    const result = await executeToolDef(
       "/project/src/file.ts",
       "eslint",
       {
@@ -135,7 +135,7 @@ describe("runTool", () => {
     vi.spyOn(fs, "existsSync").mockReturnValue(false);
     shell.setBackend(makeShell(makeShellOutput(0)) as any);
 
-    const result = await runTool(
+    const result = await executeToolDef(
       "/project/src/file.ts",
       "prettier",
       {
@@ -153,7 +153,7 @@ describe("runTool", () => {
     vi.spyOn(fs, "existsSync").mockReturnValue(false);
     shell.setBackend(makeShell(makeShellOutput(1, "", "")) as any);
 
-    const result = await runTool(
+    const result = await executeToolDef(
       "/project/src/file.ts",
       "prettier",
       {
@@ -173,7 +173,7 @@ describe("runTool", () => {
       makeShell(makeShellOutput(1, "", "SyntaxError: unexpected token")) as any,
     );
 
-    const result = await runTool(
+    const result = await executeToolDef(
       "/project/src/file.ts",
       "prettier",
       {
@@ -191,7 +191,7 @@ describe("runTool", () => {
     vi.spyOn(fs, "existsSync").mockReturnValue(false);
     shell.setBackend(makeShell(makeShellOutput(0)) as any);
 
-    const result = await runTool(
+    const result = await executeToolDef(
       "/project/src/file.ts",
       "ruff",
       {
@@ -211,7 +211,7 @@ describe("runTool", () => {
       makeShell(makeShellOutput(1, '[{"code": "E501"}]', "")) as any,
     );
 
-    const result = await runTool(
+    const result = await executeToolDef(
       "/project/src/file.ts",
       "ruff",
       {
@@ -229,7 +229,7 @@ describe("runTool", () => {
     vi.spyOn(fs, "existsSync").mockReturnValue(false);
     shell.setBackend(makeShell(makeShellOutput(1, "", "")) as any);
 
-    const result = await runTool(
+    const result = await executeToolDef(
       "/project/src/file.ts",
       "ruff",
       {
