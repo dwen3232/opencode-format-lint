@@ -1,4 +1,4 @@
-import { describe, test, expect, vi, afterEach } from "vitest";
+import { afterEach,describe, expect, test, vi } from "vitest";
 
 vi.mock("../runner", () => ({
   executeToolDef: vi.fn(),
@@ -22,11 +22,14 @@ describe("formatFiles", () => {
       ".ts": [{ name: "prettier", kind: "formatter", def: {} }],
     });
 
-    expect(mockedExecuteToolDef).toHaveBeenCalledWith("/project/src/button.ts", {
-      name: "prettier",
-      kind: "formatter",
-      def: {},
-    });
+    expect(mockedExecuteToolDef).toHaveBeenCalledWith(
+      "/project/src/button.ts",
+      {
+        name: "prettier",
+        kind: "formatter",
+        def: {},
+      },
+    );
   });
 
   test("runs multiple formatters for the same extension in order", async () => {
@@ -117,7 +120,9 @@ describe("lintFiles", () => {
       ".ts": [{ name: "eslint", kind: "linter", def: {} }],
     });
 
-    expect(errors).toEqual(["**/project/src/button.ts**\n[eslint] no-unused-vars"]);
+    expect(errors).toEqual([
+      "**/project/src/button.ts**\n[eslint] no-unused-vars",
+    ]);
   });
 
   test("collects errors from multiple files", async () => {
@@ -176,7 +181,9 @@ describe("lintFiles", () => {
 describe("buildLintReport", () => {
   test("includes the fixed header", () => {
     const report = buildLintReport(["error one"]);
-    expect(report).toMatch(/^Lint errors found after the last edit\. Fix them:/);
+    expect(report).toMatch(
+      /^Lint errors found after the last edit\. Fix them:/,
+    );
   });
 
   test("joins multiple errors with double newlines", () => {

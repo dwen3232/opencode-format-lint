@@ -17,6 +17,8 @@
   ],
   "scripts": {
     "build": "bun build src/index.ts --outdir dist --target bun",
+    "lint": "bunx eslint .",
+    "lint:fix": "bunx eslint . --fix",
     "prepublishOnly": "bun run build",
     "test": "vitest run",
     "test:watch": "vitest"
@@ -37,7 +39,11 @@
     "@opencode-ai/plugin": "^1.4.0",
     "@opencode-ai/sdk": "^1.4.0",
     "@types/node": "^22.0.0",
+    "eslint": "^10.2.1",
+    "eslint-plugin-simple-import-sort": "^13.0.0",
+    "jiti": "^2.6.1",
     "typescript": "^5.0.0",
+    "typescript-eslint": "^8.58.2",
     "vitest": "^3.0.0"
   },
   "dependencies": {

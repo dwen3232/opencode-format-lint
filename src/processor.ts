@@ -1,7 +1,8 @@
 import path from "path";
-import type { ResolvedTool } from "./types";
-import { executeToolDef } from "./runner";
+
 import { logger } from "./logger";
+import { executeToolDef } from "./runner";
+import type { ResolvedTool } from "./types";
 
 export async function formatFiles(
   files: Iterable<string>,

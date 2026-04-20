@@ -1,8 +1,13 @@
-import { describe, test, expect, vi, afterEach } from "vitest";
-import { buildRuntimeToolMappings, loadConfig, resolveToolDef } from "../config";
+import { afterEach,describe, expect, test, vi } from "vitest";
+
+import {
+  buildRuntimeToolMappings,
+  loadConfig,
+  resolveToolDef,
+} from "../config";
+import { logger } from "../logger";
 import { FORMATTER_DEFAULTS, LINTER_DEFAULTS } from "../registry/index";
 import type { CodefmtConfig } from "../schemas";
-import { logger } from "../logger";
 
 vi.mock("fs");
 import fs from "fs";
@@ -61,9 +66,9 @@ describe("buildRuntimeToolMappings", () => {
       formatters_by_ext: { ".svelte": ["prettier"] },
     });
 
-    expect(formatterToolsByExtension[".svelte"].map((tool) => tool.name)).toEqual([
-      "prettier",
-    ]);
+    expect(
+      formatterToolsByExtension[".svelte"].map((tool) => tool.name),
+    ).toEqual(["prettier"]);
   });
 
   test("user config can set an extension to an empty list", () => {

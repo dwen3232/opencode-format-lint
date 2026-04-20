@@ -1,20 +1,20 @@
 // TODO: all of this seems like too much manual config
 
 import type { ToolDef } from "../schemas";
-import prettier from "./prettier";
 import biome from "./biome";
 import black from "./black";
-import isort from "./isort";
-import gofmt from "./gofmt";
-import rustfmt from "./rustfmt";
-import stylua from "./stylua";
-import shfmt from "./shfmt";
 import eslint from "./eslint";
-import ruff from "./ruff";
+import gofmt from "./gofmt";
 import golangciLint from "./golangci-lint";
-import shellcheck from "./shellcheck";
 import hadolint from "./hadolint";
+import isort from "./isort";
 import markdownlint from "./markdownlint";
+import prettier from "./prettier";
+import ruff from "./ruff";
+import rustfmt from "./rustfmt";
+import shellcheck from "./shellcheck";
+import shfmt from "./shfmt";
+import stylua from "./stylua";
 
 // name → ToolDef for config resolution
 export const FORMATTER_DEFAULTS: Record<string, ToolDef> = {

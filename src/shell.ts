@@ -3,19 +3,6 @@ import type { PluginInput } from "@opencode-ai/plugin";
 export type BunShell = PluginInput["$"];
 
 /**
- * Raised when tool execution is attempted before the Bun shell backend has
- * been injected by the plugin entrypoint.
- */
-// TODO: this is super unneeded
-export class ShellNotInitializedError extends Error {
-  constructor() {
-    super(
-      "Shell not initialized — setBackend must be called before running tools",
-    );
-  }
-}
-
-/**
  * Global shell singleton that stores OpenCode's injected Bun shell instance so
  * lower-level modules can execute commands without threading `$` everywhere.
  */
@@ -27,7 +14,10 @@ export class Shell {
   }
 
   get(): BunShell {
-    if (!this._shell) throw new ShellNotInitializedError();
+    if (!this._shell)
+      throw new Error(
+        "Shell not initialized; setBackend must be called before running executables",
+      );
     return this._shell;
   }
 }

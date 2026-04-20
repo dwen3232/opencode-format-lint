@@ -1,15 +1,16 @@
 import fs from "fs";
 import path from "path";
-import type { CodefmtConfig, ToolDef } from "./schemas";
-import type { ResolvedTool, RuntimeToolMappings } from "./types";
-import { CodefmtConfigSchema } from "./schemas";
+
+import { logger } from "./logger";
 import {
   DEFAULT_FORMATTER_EXTENSIONS,
   DEFAULT_LINTER_EXTENSIONS,
   FORMATTER_DEFAULTS,
   LINTER_DEFAULTS,
 } from "./registry/index";
-import { logger } from "./logger";
+import type { CodefmtConfig, ToolDef } from "./schemas";
+import { CodefmtConfigSchema } from "./schemas";
+import type { ResolvedTool, RuntimeToolMappings } from "./types";
 
 const CONFIG_NAME = "codefmt.json";
 

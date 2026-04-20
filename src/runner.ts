@@ -1,7 +1,8 @@
 import fs from "fs";
 import path from "path";
-import type { ResolvedTool } from "./types";
+
 import { shell } from "./shell";
+import type { ResolvedTool } from "./types";
 
 /**
  * Walks upward from a file to find the nearest directory containing any of the

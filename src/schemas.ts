@@ -15,7 +15,8 @@ export const ToolDefSchema = z.object({
     .array(z.string())
     .optional()
     .describe(
-      "Filenames that indicate a project root. The plugin walks up from the edited file to find them.",
+      "Filenames that indicate a project root. " +
+        "The plugin walks up from the edited file to find them.",
     ),
   require_markers: z
     .boolean()
@@ -34,13 +35,15 @@ export const CodefmtConfigSchema = z.object({
     .record(z.string(), z.array(z.string()))
     .optional()
     .describe(
-      "Map of file extension to ordered list of formatter names to run. Overrides built-in defaults for that extension entirely.",
+      "Map of file extension to ordered list of formatter names to run. " +
+        "Overrides built-in defaults for that extension entirely.",
     ),
   linters_by_ext: z
     .record(z.string(), z.array(z.string()))
     .optional()
     .describe(
-      "Map of file extension to ordered list of linter names to run. Overrides built-in defaults for that extension entirely.",
+      "Map of file extension to ordered list of linter names to run. " +
+        "Overrides built-in defaults for that extension entirely.",
     ),
   formatters: z
     .record(z.string(), ToolDefSchema)

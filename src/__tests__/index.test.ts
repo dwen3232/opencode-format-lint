@@ -1,7 +1,8 @@
-import { afterEach, describe, expect, test, vi } from "vitest";
 import type { Hooks, PluginInput } from "@opencode-ai/plugin";
+import { afterEach, describe, expect, test, vi } from "vitest";
+
+import { FormatLintPlugin } from "../index";
 import type { BunShell } from "../shell";
-import { CodefmtPlugin } from "../index";
 
 vi.mock("fs");
 import fs from "fs";
@@ -19,6 +20,11 @@ type TestClient = {
     prompt: ReturnType<typeof vi.fn>;
   };
 };
+
+interface TestSession {
+  id: string;
+  parentID?: string;
+}
 
 interface ShellCall {
   cmd: string;
@@ -47,38 +53,40 @@ function makeShellOutput(
 function makeShell(
   calls: ShellCall[],
   resolveOutput: (cmd: string, args: string[]) => BunShellOutput,
-) : BunShell {
+): BunShell {
   const shell = Object.assign(
     vi.fn((_: TemplateStringsArray, cmd: string, args: string[]) => {
-    const call: ShellCall = { cmd, args };
-    calls.push(call);
+      const call: ShellCall = { cmd, args };
+      calls.push(call);
 
-    const output = resolveOutput(cmd, args);
-    const promise = Object.assign(Promise.resolve(output), {
-      cwd: (cwd: string) => {
-        call.cwd = cwd;
-        return promise;
-      },
-      env: (env?: Record<string, string>) => {
-        call.env = env;
-        return promise;
-      },
-      quiet: () => promise,
-      nothrow: () => promise,
-      stdin: new WritableStream(),
-      lines: async function* () {},
-      text: () => Promise.resolve(output.stdout.toString()),
-      json: () => Promise.resolve(null),
-      arrayBuffer: () => Promise.resolve(new ArrayBuffer(0)),
-      blob: () => Promise.resolve(new Blob([])),
-      throws: () => promise,
-    });
+      const output = resolveOutput(cmd, args);
+      const promise = Object.assign(Promise.resolve(output), {
+        cwd: (cwd: string) => {
+          call.cwd = cwd;
+          return promise;
+        },
+        env: (env?: Record<string, string>) => {
+          call.env = env;
+          return promise;
+        },
+        quiet: () => promise,
+        nothrow: () => promise,
+        stdin: new WritableStream(),
+        lines: async function* () {},
+        text: () => Promise.resolve(output.stdout.toString()),
+        json: () => Promise.resolve(null),
+        arrayBuffer: () => Promise.resolve(new ArrayBuffer(0)),
+        blob: () => Promise.resolve(new Blob([])),
+        throws: () => promise,
+      });
 
-    return promise;
+      return promise;
     }),
     {
       braces: vi.fn<(pattern: string) => string[]>().mockReturnValue([]),
-      escape: vi.fn<(input: string) => string>().mockImplementation((input) => input),
+      escape: vi
+        .fn<(input: string) => string>()
+        .mockImplementation((input) => input),
       env: vi.fn().mockReturnThis(),
       cwd: vi.fn().mockReturnThis(),
       nothrow: vi.fn().mockReturnThis(),
@@ -89,13 +97,26 @@ function makeShell(
   return shell as unknown as BunShell;
 }
 
-function makeClient(parentID?: string): TestClient {
+function makeClient(
+  sessions: Record<string, TestSession> = {
+    "session-1": { id: "session-1" },
+  },
+  rejectedSessionIDs: string[] = [],
+): TestClient {
+  const rejected = new Set(rejectedSessionIDs);
+
   return {
     app: {
       log: vi.fn().mockResolvedValue(undefined),
     },
     session: {
-      get: vi.fn().mockResolvedValue({ data: parentID ? { parentID } : {} }),
+      get: vi.fn().mockImplementation(({ path: { id } }) => {
+        if (rejected.has(id)) {
+          return Promise.reject(new Error(`lookup failed for ${id}`));
+        }
+
+        return Promise.resolve({ data: sessions[id] });
+      }),
       prompt: vi.fn().mockResolvedValue(undefined),
     },
   };
@@ -148,13 +169,16 @@ describe("CodefmtPlugin integration", () => {
 
     const calls: ShellCall[] = [];
     const client = makeClient();
-    const plugin = await CodefmtPlugin(
-      makePluginInput(client, makeShell(calls, (cmd, _args) => {
-        if (cmd === "ruff") {
-          return makeShellOutput(1, '[{"code":"F401"}]');
-        }
-        return makeShellOutput(0);
-      })),
+    const plugin = await FormatLintPlugin(
+      makePluginInput(
+        client,
+        makeShell(calls, (cmd, _args) => {
+          if (cmd === "ruff") {
+            return makeShellOutput(1, '[{"code":"F401"}]');
+          }
+          return makeShellOutput(0);
+        }),
+      ),
     );
 
     await runToolExecuteAfter(plugin, {
@@ -171,8 +195,12 @@ describe("CodefmtPlugin integration", () => {
       },
     });
 
-    const report =
-      'Lint errors found after the last edit. Fix them:\n\n**/project/src/main.py**\n[ruff] [{"code":"F401"}]';
+    const report = [
+      "Lint errors found after the last edit. Fix them:",
+      "",
+      "**/project/src/main.py**",
+      '[ruff] [{"code":"F401"}]',
+    ].join("\n");
 
     expect(calls).toEqual([
       {
@@ -208,13 +236,152 @@ describe("CodefmtPlugin integration", () => {
     });
   });
 
-  test("deduplicates tracked files within a session and skips prompt when lint passes", async () => {
+  test(
+    "deduplicates tracked files within a session and skips prompt when lint passes",
+    async () => {
+      vi.spyOn(fs, "existsSync").mockReturnValue(false);
+
+      const calls: ShellCall[] = [];
+      const client = makeClient();
+      const plugin = await FormatLintPlugin(
+        makePluginInput(
+          client,
+          makeShell(calls, (_cmd, _args) => makeShellOutput(0)),
+        ),
+      );
+
+      await runToolExecuteAfter(plugin, {
+        tool: "write",
+        args: { filePath: "/project/src/main.py" },
+        sessionID: "session-1",
+        callID: "call-1",
+      });
+      await runToolExecuteAfter(plugin, {
+        tool: "edit",
+        args: { filePath: "/project/src/main.py" },
+        sessionID: "session-1",
+        callID: "call-2",
+      });
+
+      await runEvent(plugin, {
+        event: {
+          type: "session.idle",
+          properties: { sessionID: "session-1" },
+        },
+      });
+
+      expect(calls.map((call) => call.cmd)).toEqual(["black", "isort", "ruff"]);
+      expect(client.session.prompt).not.toHaveBeenCalled();
+    },
+  );
+
+  test(
+    "waits for the root session to idle before processing child session edits",
+    async () => {
+      vi.spyOn(fs, "existsSync").mockReturnValue(false);
+
+      const calls: ShellCall[] = [];
+      const client = makeClient({
+        "session-1": { id: "session-1" },
+        "child-1": { id: "child-1", parentID: "session-1" },
+      });
+      const plugin = await FormatLintPlugin(
+        makePluginInput(
+          client,
+          makeShell(calls, (_cmd, _args) => makeShellOutput(0)),
+        ),
+      );
+
+      await runToolExecuteAfter(plugin, {
+        tool: "write",
+        args: { filePath: "/project/src/child.py" },
+        sessionID: "child-1",
+        callID: "call-1",
+      });
+
+      await runEvent(plugin, {
+        event: {
+          type: "session.idle",
+          properties: { sessionID: "child-1" },
+        },
+      });
+
+      expect(calls).toEqual([]);
+
+      await runToolExecuteAfter(plugin, {
+        tool: "write",
+        args: { filePath: "/project/src/root.py" },
+        sessionID: "session-1",
+        callID: "call-2",
+      });
+
+      await runEvent(plugin, {
+        event: {
+          type: "session.idle",
+          properties: { sessionID: "session-1" },
+        },
+      });
+
+      expect(calls).toEqual([
+        {
+          cmd: "black",
+          args: ["/project/src/child.py"],
+          cwd: process.cwd(),
+          env: undefined,
+        },
+        {
+          cmd: "isort",
+          args: ["/project/src/child.py"],
+          cwd: process.cwd(),
+          env: undefined,
+        },
+        {
+          cmd: "black",
+          args: ["/project/src/root.py"],
+          cwd: process.cwd(),
+          env: undefined,
+        },
+        {
+          cmd: "isort",
+          args: ["/project/src/root.py"],
+          cwd: process.cwd(),
+          env: undefined,
+        },
+        {
+          cmd: "ruff",
+          args: ["check", "--output-format", "json", "/project/src/child.py"],
+          cwd: process.cwd(),
+          env: undefined,
+        },
+        {
+          cmd: "ruff",
+          args: ["check", "--output-format", "json", "/project/src/root.py"],
+          cwd: process.cwd(),
+          env: undefined,
+        },
+      ]);
+      expect(client.session.prompt).not.toHaveBeenCalled();
+    },
+  );
+
+  test("retries pending files when format or lint processing throws", async () => {
     vi.spyOn(fs, "existsSync").mockReturnValue(false);
 
     const calls: ShellCall[] = [];
+    let shouldThrow = true;
     const client = makeClient();
-    const plugin = await CodefmtPlugin(
-      makePluginInput(client, makeShell(calls, (_cmd, _args) => makeShellOutput(0))),
+    const plugin = await FormatLintPlugin(
+      makePluginInput(
+        client,
+        makeShell(calls, (cmd, _args) => {
+          if (cmd === "black" && shouldThrow) {
+            shouldThrow = false;
+            throw new Error("formatter crashed");
+          }
+
+          return makeShellOutput(0);
+        }),
+      ),
     );
 
     await runToolExecuteAfter(plugin, {
@@ -222,12 +389,6 @@ describe("CodefmtPlugin integration", () => {
       args: { filePath: "/project/src/main.py" },
       sessionID: "session-1",
       callID: "call-1",
-    });
-    await runToolExecuteAfter(plugin, {
-      tool: "edit",
-      args: { filePath: "/project/src/main.py" },
-      sessionID: "session-1",
-      callID: "call-2",
     });
 
     await runEvent(plugin, {
@@ -237,7 +398,51 @@ describe("CodefmtPlugin integration", () => {
       },
     });
 
-    expect(calls.map((call) => call.cmd)).toEqual(["black", "isort", "ruff"]);
+    expect(calls.map((call) => call.cmd)).toEqual(["black"]);
+
+    await runEvent(plugin, {
+      event: {
+        type: "session.idle",
+        properties: { sessionID: "session-1" },
+      },
+    });
+
+    expect(calls.map((call) => call.cmd)).toEqual([
+      "black",
+      "black",
+      "isort",
+      "ruff",
+    ]);
+    expect(client.session.prompt).not.toHaveBeenCalled();
+  });
+
+  test("fails closed when session lookup fails", async () => {
+    vi.spyOn(fs, "existsSync").mockReturnValue(false);
+
+    const calls: ShellCall[] = [];
+    const client = makeClient(undefined, ["session-1"]);
+    const plugin = await FormatLintPlugin(
+      makePluginInput(
+        client,
+        makeShell(calls, (_cmd, _args) => makeShellOutput(0)),
+      ),
+    );
+
+    await runToolExecuteAfter(plugin, {
+      tool: "write",
+      args: { filePath: "/project/src/main.py" },
+      sessionID: "session-1",
+      callID: "call-1",
+    });
+
+    await runEvent(plugin, {
+      event: {
+        type: "session.idle",
+        properties: { sessionID: "session-1" },
+      },
+    });
+
+    expect(calls).toEqual([]);
     expect(client.session.prompt).not.toHaveBeenCalled();
   });
 });

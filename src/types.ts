@@ -13,13 +13,12 @@ export interface ResolvedTool {
   def: ToolDef;
 }
 
-// TODO: move this to registry/?
+// Registry types
 export interface RegistryEntry {
   formatter?: ToolEntry;
   linter?: ToolEntry;
 }
 
-// TODO: move this to registry/?
 export interface ToolEntry {
   extensions: string[];
   def: ToolDef;

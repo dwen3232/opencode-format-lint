@@ -1,5 +1,6 @@
-import { describe, test, expect, vi, afterEach } from "vitest";
 import path from "path";
+import { afterEach,describe, expect, test, vi } from "vitest";
+
 import type { BunShell } from "../shell";
 
 type BunShellOutput = Awaited<ReturnType<BunShell>>;
@@ -7,7 +8,7 @@ type BunShellOutput = Awaited<ReturnType<BunShell>>;
 vi.mock("fs");
 import fs from "fs";
 
-import { findRoot, executeToolDef } from "../runner";
+import { executeToolDef,findRoot } from "../runner";
 import { shell } from "../shell";
 
 afterEach(() => {
@@ -119,18 +120,15 @@ describe("runTool", () => {
   test("returns null when require_markers is true and no marker is found", async () => {
     vi.spyOn(fs, "existsSync").mockReturnValue(false);
 
-    const result = await executeToolDef(
-      "/project/src/file.ts",
-      {
-        name: "eslint",
-        kind: "linter",
-        def: {
-          args: ["--format", "json"],
-          markers: ["eslint.config.js"],
-          require_markers: true,
-        },
+    const result = await executeToolDef("/project/src/file.ts", {
+      name: "eslint",
+      kind: "linter",
+      def: {
+        args: ["--format", "json"],
+        markers: ["eslint.config.js"],
+        require_markers: true,
       },
-    );
+    });
 
     expect(result).toBeNull();
   });
@@ -139,18 +137,15 @@ describe("runTool", () => {
     vi.spyOn(fs, "existsSync").mockReturnValue(false);
     shell.setBackend(makeShell(makeShellOutput(0)) as any);
 
-    const result = await executeToolDef(
-      "/project/src/file.ts",
-      {
-        name: "prettier",
-        kind: "formatter",
-        def: {
-          args: ["--write"],
-          markers: [],
-          require_markers: false,
-        },
+    const result = await executeToolDef("/project/src/file.ts", {
+      name: "prettier",
+      kind: "formatter",
+      def: {
+        args: ["--write"],
+        markers: [],
+        require_markers: false,
       },
-    );
+    });
 
     expect(result).toBeNull();
   });
@@ -159,18 +154,15 @@ describe("runTool", () => {
     vi.spyOn(fs, "existsSync").mockReturnValue(false);
     shell.setBackend(makeShell(makeShellOutput(1, "", "")) as any);
 
-    const result = await executeToolDef(
-      "/project/src/file.ts",
-      {
-        name: "prettier",
-        kind: "formatter",
-        def: {
-          args: ["--write"],
-          markers: [],
-          require_markers: false,
-        },
+    const result = await executeToolDef("/project/src/file.ts", {
+      name: "prettier",
+      kind: "formatter",
+      def: {
+        args: ["--write"],
+        markers: [],
+        require_markers: false,
       },
-    );
+    });
 
     expect(result).toBeNull();
   });
@@ -181,18 +173,15 @@ describe("runTool", () => {
       makeShell(makeShellOutput(1, "", "SyntaxError: unexpected token")) as any,
     );
 
-    const result = await executeToolDef(
-      "/project/src/file.ts",
-      {
-        name: "prettier",
-        kind: "formatter",
-        def: {
-          args: ["--write"],
-          markers: [],
-          require_markers: false,
-        },
+    const result = await executeToolDef("/project/src/file.ts", {
+      name: "prettier",
+      kind: "formatter",
+      def: {
+        args: ["--write"],
+        markers: [],
+        require_markers: false,
       },
-    );
+    });
 
     expect(result).toBe("[prettier] SyntaxError: unexpected token");
   });
@@ -201,18 +190,15 @@ describe("runTool", () => {
     vi.spyOn(fs, "existsSync").mockReturnValue(false);
     shell.setBackend(makeShell(makeShellOutput(0)) as any);
 
-    const result = await executeToolDef(
-      "/project/src/file.ts",
-      {
-        name: "ruff",
-        kind: "linter",
-        def: {
-          args: ["check", "--output-format", "json"],
-          markers: [],
-          require_markers: false,
-        },
+    const result = await executeToolDef("/project/src/file.ts", {
+      name: "ruff",
+      kind: "linter",
+      def: {
+        args: ["check", "--output-format", "json"],
+        markers: [],
+        require_markers: false,
       },
-    );
+    });
 
     expect(result).toBeNull();
   });
@@ -223,18 +209,15 @@ describe("runTool", () => {
       makeShell(makeShellOutput(1, '[{"code": "E501"}]', "")) as any,
     );
 
-    const result = await executeToolDef(
-      "/project/src/file.ts",
-      {
-        name: "ruff",
-        kind: "linter",
-        def: {
-          args: ["check", "--output-format", "json"],
-          markers: [],
-          require_markers: false,
-        },
+    const result = await executeToolDef("/project/src/file.ts", {
+      name: "ruff",
+      kind: "linter",
+      def: {
+        args: ["check", "--output-format", "json"],
+        markers: [],
+        require_markers: false,
       },
-    );
+    });
 
     expect(result).toBe('[ruff] [{"code": "E501"}]');
   });
@@ -243,19 +226,16 @@ describe("runTool", () => {
     vi.spyOn(fs, "existsSync").mockReturnValue(false);
     shell.setBackend(makeShell(makeShellOutput(1, "", "")) as any);
 
-    const result = await executeToolDef(
-      "/project/src/file.ts",
-      {
-        name: "ruff",
-        kind: "linter",
-        def: {
-          args: ["check"],
-          markers: [],
-          require_markers: false,
-        },
+    const result = await executeToolDef("/project/src/file.ts", {
+      name: "ruff",
+      kind: "linter",
+      def: {
+        args: ["check"],
+        markers: [],
+        require_markers: false,
       },
-    );
-  
+    });
+
     expect(result).toBe("[ruff] exit code 1");
   });
 });
