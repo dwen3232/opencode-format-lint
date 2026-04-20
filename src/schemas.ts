@@ -21,9 +21,7 @@ export const ToolDefSchema = z.object({
   require_markers: z
     .boolean()
     .optional()
-    .describe(
-      "If true, skip this tool silently when no marker is found. Defaults to false.",
-    ),
+    .describe("If true, skip this tool silently when no marker is found. Defaults to false."),
   env: z
     .record(z.string(), z.string())
     .optional()
@@ -54,9 +52,7 @@ export const CodefmtConfigSchema = z.object({
   linters: z
     .record(z.string(), ToolDefSchema)
     .optional()
-    .describe(
-      "Per-linter overrides merged on top of built-in defaults. Keys are linter names.",
-    ),
+    .describe("Per-linter overrides merged on top of built-in defaults. Keys are linter names."),
 });
 
 export type ToolDef = z.infer<typeof ToolDefSchema>;

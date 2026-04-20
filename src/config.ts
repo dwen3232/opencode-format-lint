@@ -61,25 +61,15 @@ function invertToolToExtensionsMap(
  * Builds the runtime execution plan for both formatter and linter execution,
  * applying user per-extension overrides and resolving tool definitions once.
  */
-export function buildRuntimeToolMappings(
-  config: CodefmtConfig,
-): RuntimeToolMappings {
-  const formatterToolNamesByExtension = invertToolToExtensionsMap(
-    DEFAULT_FORMATTER_EXTENSIONS,
-  );
-  const linterToolNamesByExtension = invertToolToExtensionsMap(
-    DEFAULT_LINTER_EXTENSIONS,
-  );
+export function buildRuntimeToolMappings(config: CodefmtConfig): RuntimeToolMappings {
+  const formatterToolNamesByExtension = invertToolToExtensionsMap(DEFAULT_FORMATTER_EXTENSIONS);
+  const linterToolNamesByExtension = invertToolToExtensionsMap(DEFAULT_LINTER_EXTENSIONS);
 
-  for (const [extension, tools] of Object.entries(
-    config.formatters_by_ext ?? {},
-  )) {
+  for (const [extension, tools] of Object.entries(config.formatters_by_ext ?? {})) {
     formatterToolNamesByExtension[extension] = tools;
   }
 
-  for (const [extension, tools] of Object.entries(
-    config.linters_by_ext ?? {},
-  )) {
+  for (const [extension, tools] of Object.entries(config.linters_by_ext ?? {})) {
     linterToolNamesByExtension[extension] = tools;
   }
 
@@ -89,11 +79,7 @@ export function buildRuntimeToolMappings(
       config,
       formatterToolNamesByExtension,
     ),
-    linterToolsByExtension: resolveToolsByExtension(
-      "linters",
-      config,
-      linterToolNamesByExtension,
-    ),
+    linterToolsByExtension: resolveToolsByExtension("linters", config, linterToolNamesByExtension),
   };
 }
 
@@ -104,9 +90,7 @@ function resolveToolsByExtension(
 ): Record<string, ResolvedTool[]> {
   const toolsByExtension: Record<string, ResolvedTool[]> = {};
 
-  for (const [extension, toolNames] of Object.entries(
-    extensionToToolNamesMap,
-  )) {
+  for (const [extension, toolNames] of Object.entries(extensionToToolNamesMap)) {
     toolsByExtension[extension] = toolNames.map((name) => ({
       name,
       kind: kind === "formatters" ? "formatter" : "linter",

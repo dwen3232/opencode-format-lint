@@ -20,8 +20,7 @@ export const FormatLintPlugin: Plugin = async ({ client, $, directory }) => {
   shell.setBackend($);
 
   const config = loadConfig(directory);
-  const { formatterToolsByExtension, linterToolsByExtension } =
-    buildRuntimeToolMappings(config);
+  const { formatterToolsByExtension, linterToolsByExtension } = buildRuntimeToolMappings(config);
   const pendingBySession = new Map<string, Set<string>>();
 
   const getRootSessionID = async (sessionID: string): Promise<string> => {
@@ -41,6 +40,17 @@ export const FormatLintPlugin: Plugin = async ({ client, $, directory }) => {
 
       currentID = session.parentID;
     }
+  };
+
+  const isRootSession = async (sessionID: string): Promise<boolean> => {
+    const result = await client.session.get({ path: { id: sessionID } });
+    const session = result.data;
+
+    if (!session?.id) {
+      throw new Error(`session lookup failed for ${sessionID}`);
+    }
+
+    return !session.parentID;
   };
 
   const addPendingFiles = (sessionID: string, files: Iterable<string>): void => {
@@ -97,9 +107,9 @@ export const FormatLintPlugin: Plugin = async ({ client, $, directory }) => {
 
       const { sessionID } = event.properties;
 
-      let rootSessionID: string;
+      let rootSession: boolean;
       try {
-        rootSessionID = await getRootSessionID(sessionID);
+        rootSession = await isRootSession(sessionID);
       } catch (error) {
         logger.error("failed to resolve root session for idle event", {
           sessionID,
@@ -108,11 +118,8 @@ export const FormatLintPlugin: Plugin = async ({ client, $, directory }) => {
         return;
       }
 
-      if (rootSessionID !== sessionID) {
-        logger.debug("session.idle suppressed (child session)", {
-          rootSessionID,
-          sessionID,
-        });
+      if (!rootSession) {
+        logger.debug("session.idle suppressed (child session)", { sessionID });
         return;
       }
 

@@ -1,9 +1,5 @@
 type Level = "debug" | "info" | "warn" | "error";
-type LogFn = (
-  level: Level,
-  msg: string,
-  extra?: Record<string, unknown>,
-) => void;
+type LogFn = (level: Level, msg: string, extra?: Record<string, unknown>) => void;
 
 /**
  * Global logger singleton that defaults to stderr until OpenCode injects its

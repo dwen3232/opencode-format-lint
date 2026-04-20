@@ -1,10 +1,6 @@
-import { afterEach,describe, expect, test, vi } from "vitest";
+import { afterEach, describe, expect, test, vi } from "vitest";
 
-import {
-  buildRuntimeToolMappings,
-  loadConfig,
-  resolveToolDef,
-} from "../config";
+import { buildRuntimeToolMappings, loadConfig, resolveToolDef } from "../config";
 import { logger } from "../logger";
 import { FORMATTER_DEFAULTS, LINTER_DEFAULTS } from "../registry/index";
 import type { CodefmtConfig } from "../schemas";
@@ -18,14 +14,10 @@ afterEach(() => {
 
 describe("buildRuntimeToolMappings", () => {
   test("builds default formatter and linter mappings", () => {
-    const { formatterToolsByExtension, linterToolsByExtension } =
-      buildRuntimeToolMappings({});
+    const { formatterToolsByExtension, linterToolsByExtension } = buildRuntimeToolMappings({});
 
     expect(formatterToolsByExtension[".ts"][0]?.name).toBe("prettier");
-    expect(formatterToolsByExtension[".py"].map((tool) => tool.name)).toEqual([
-      "black",
-      "isort",
-    ]);
+    expect(formatterToolsByExtension[".py"].map((tool) => tool.name)).toEqual(["black", "isort"]);
     expect(linterToolsByExtension[".ts"][0]?.name).toBe("eslint");
     expect(linterToolsByExtension[".py"][0]?.name).toBe("ruff");
   });
@@ -35,9 +27,7 @@ describe("buildRuntimeToolMappings", () => {
       formatters_by_ext: { ".ts": ["biome"] },
     });
 
-    expect(formatterToolsByExtension[".ts"].map((tool) => tool.name)).toEqual([
-      "biome",
-    ]);
+    expect(formatterToolsByExtension[".ts"].map((tool) => tool.name)).toEqual(["biome"]);
   });
 
   test("user linters_by_ext fully replaces the default for that extension", () => {
@@ -45,9 +35,7 @@ describe("buildRuntimeToolMappings", () => {
       linters_by_ext: { ".ts": ["biome"] },
     });
 
-    expect(linterToolsByExtension[".ts"].map((tool) => tool.name)).toEqual([
-      "biome",
-    ]);
+    expect(linterToolsByExtension[".ts"].map((tool) => tool.name)).toEqual(["biome"]);
   });
 
   test("user config only replaces specified extensions, leaving others intact", () => {
@@ -55,10 +43,7 @@ describe("buildRuntimeToolMappings", () => {
       formatters_by_ext: { ".ts": ["biome"] },
     });
 
-    expect(formatterToolsByExtension[".py"].map((tool) => tool.name)).toEqual([
-      "black",
-      "isort",
-    ]);
+    expect(formatterToolsByExtension[".py"].map((tool) => tool.name)).toEqual(["black", "isort"]);
   });
 
   test("user config can add a new extension not in the defaults", () => {
@@ -66,9 +51,7 @@ describe("buildRuntimeToolMappings", () => {
       formatters_by_ext: { ".svelte": ["prettier"] },
     });
 
-    expect(
-      formatterToolsByExtension[".svelte"].map((tool) => tool.name),
-    ).toEqual(["prettier"]);
+    expect(formatterToolsByExtension[".svelte"].map((tool) => tool.name)).toEqual(["prettier"]);
   });
 
   test("user config can set an extension to an empty list", () => {

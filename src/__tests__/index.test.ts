@@ -33,11 +33,7 @@ interface ShellCall {
   env?: Record<string, string>;
 }
 
-function makeShellOutput(
-  exitCode: number,
-  stdout = "",
-  stderr = "",
-): BunShellOutput {
+function makeShellOutput(exitCode: number, stdout = "", stderr = ""): BunShellOutput {
   return {
     exitCode,
     stdout: Buffer.from(stdout),
@@ -84,9 +80,7 @@ function makeShell(
     }),
     {
       braces: vi.fn<(pattern: string) => string[]>().mockReturnValue([]),
-      escape: vi
-        .fn<(input: string) => string>()
-        .mockImplementation((input) => input),
+      escape: vi.fn<(input: string) => string>().mockImplementation((input) => input),
       env: vi.fn().mockReturnThis(),
       cwd: vi.fn().mockReturnThis(),
       nothrow: vi.fn().mockReturnThis(),
@@ -150,10 +144,7 @@ async function runToolExecuteAfter(
   });
 }
 
-async function runEvent(
-  hooks: Hooks,
-  input: Parameters<EventHook>[0],
-): Promise<void> {
+async function runEvent(hooks: Hooks, input: Parameters<EventHook>[0]): Promise<void> {
   const handler = hooks.event;
   if (!handler) throw new Error("event hook not registered");
   await handler(input);
@@ -236,133 +227,127 @@ describe("CodefmtPlugin integration", () => {
     });
   });
 
-  test(
-    "deduplicates tracked files within a session and skips prompt when lint passes",
-    async () => {
-      vi.spyOn(fs, "existsSync").mockReturnValue(false);
+  test("deduplicates tracked files within a session and skips prompt when lint passes", async () => {
+    vi.spyOn(fs, "existsSync").mockReturnValue(false);
 
-      const calls: ShellCall[] = [];
-      const client = makeClient();
-      const plugin = await FormatLintPlugin(
-        makePluginInput(
-          client,
-          makeShell(calls, (_cmd, _args) => makeShellOutput(0)),
-        ),
-      );
+    const calls: ShellCall[] = [];
+    const client = makeClient();
+    const plugin = await FormatLintPlugin(
+      makePluginInput(
+        client,
+        makeShell(calls, (_cmd, _args) => makeShellOutput(0)),
+      ),
+    );
 
-      await runToolExecuteAfter(plugin, {
-        tool: "write",
-        args: { filePath: "/project/src/main.py" },
-        sessionID: "session-1",
-        callID: "call-1",
-      });
-      await runToolExecuteAfter(plugin, {
-        tool: "edit",
-        args: { filePath: "/project/src/main.py" },
-        sessionID: "session-1",
-        callID: "call-2",
-      });
+    await runToolExecuteAfter(plugin, {
+      tool: "write",
+      args: { filePath: "/project/src/main.py" },
+      sessionID: "session-1",
+      callID: "call-1",
+    });
+    await runToolExecuteAfter(plugin, {
+      tool: "edit",
+      args: { filePath: "/project/src/main.py" },
+      sessionID: "session-1",
+      callID: "call-2",
+    });
 
-      await runEvent(plugin, {
-        event: {
-          type: "session.idle",
-          properties: { sessionID: "session-1" },
-        },
-      });
+    await runEvent(plugin, {
+      event: {
+        type: "session.idle",
+        properties: { sessionID: "session-1" },
+      },
+    });
 
-      expect(calls.map((call) => call.cmd)).toEqual(["black", "isort", "ruff"]);
-      expect(client.session.prompt).not.toHaveBeenCalled();
-    },
-  );
+    expect(calls.map((call) => call.cmd)).toEqual(["black", "isort", "ruff"]);
+    expect(client.session.prompt).not.toHaveBeenCalled();
+  });
 
-  test(
-    "waits for the root session to idle before processing child session edits",
-    async () => {
-      vi.spyOn(fs, "existsSync").mockReturnValue(false);
+  test("waits for the root session to idle before processing child session edits", async () => {
+    vi.spyOn(fs, "existsSync").mockReturnValue(false);
 
-      const calls: ShellCall[] = [];
-      const client = makeClient({
-        "session-1": { id: "session-1" },
-        "child-1": { id: "child-1", parentID: "session-1" },
-      });
-      const plugin = await FormatLintPlugin(
-        makePluginInput(
-          client,
-          makeShell(calls, (_cmd, _args) => makeShellOutput(0)),
-        ),
-      );
+    const calls: ShellCall[] = [];
+    const client = makeClient({
+      "session-1": { id: "session-1" },
+      "child-1": { id: "child-1", parentID: "session-1" },
+    });
+    const plugin = await FormatLintPlugin(
+      makePluginInput(
+        client,
+        makeShell(calls, (_cmd, _args) => makeShellOutput(0)),
+      ),
+    );
 
-      await runToolExecuteAfter(plugin, {
-        tool: "write",
-        args: { filePath: "/project/src/child.py" },
-        sessionID: "child-1",
-        callID: "call-1",
-      });
+    await runToolExecuteAfter(plugin, {
+      tool: "write",
+      args: { filePath: "/project/src/child.py" },
+      sessionID: "child-1",
+      callID: "call-1",
+    });
 
-      await runEvent(plugin, {
-        event: {
-          type: "session.idle",
-          properties: { sessionID: "child-1" },
-        },
-      });
+    await runEvent(plugin, {
+      event: {
+        type: "session.idle",
+        properties: { sessionID: "child-1" },
+      },
+    });
 
-      expect(calls).toEqual([]);
+    expect(calls).toEqual([]);
 
-      await runToolExecuteAfter(plugin, {
-        tool: "write",
-        args: { filePath: "/project/src/root.py" },
-        sessionID: "session-1",
-        callID: "call-2",
-      });
+    await runToolExecuteAfter(plugin, {
+      tool: "write",
+      args: { filePath: "/project/src/root.py" },
+      sessionID: "session-1",
+      callID: "call-2",
+    });
 
-      await runEvent(plugin, {
-        event: {
-          type: "session.idle",
-          properties: { sessionID: "session-1" },
-        },
-      });
+    await runEvent(plugin, {
+      event: {
+        type: "session.idle",
+        properties: { sessionID: "session-1" },
+      },
+    });
 
-      expect(calls).toEqual([
-        {
-          cmd: "black",
-          args: ["/project/src/child.py"],
-          cwd: process.cwd(),
-          env: undefined,
-        },
-        {
-          cmd: "isort",
-          args: ["/project/src/child.py"],
-          cwd: process.cwd(),
-          env: undefined,
-        },
-        {
-          cmd: "black",
-          args: ["/project/src/root.py"],
-          cwd: process.cwd(),
-          env: undefined,
-        },
-        {
-          cmd: "isort",
-          args: ["/project/src/root.py"],
-          cwd: process.cwd(),
-          env: undefined,
-        },
-        {
-          cmd: "ruff",
-          args: ["check", "--output-format", "json", "/project/src/child.py"],
-          cwd: process.cwd(),
-          env: undefined,
-        },
-        {
-          cmd: "ruff",
-          args: ["check", "--output-format", "json", "/project/src/root.py"],
-          cwd: process.cwd(),
-          env: undefined,
-        },
-      ]);
-      expect(client.session.prompt).not.toHaveBeenCalled();
-    },
-  );
+    expect(calls).toEqual([
+      {
+        cmd: "black",
+        args: ["/project/src/child.py"],
+        cwd: process.cwd(),
+        env: undefined,
+      },
+      {
+        cmd: "isort",
+        args: ["/project/src/child.py"],
+        cwd: process.cwd(),
+        env: undefined,
+      },
+      {
+        cmd: "black",
+        args: ["/project/src/root.py"],
+        cwd: process.cwd(),
+        env: undefined,
+      },
+      {
+        cmd: "isort",
+        args: ["/project/src/root.py"],
+        cwd: process.cwd(),
+        env: undefined,
+      },
+      {
+        cmd: "ruff",
+        args: ["check", "--output-format", "json", "/project/src/child.py"],
+        cwd: process.cwd(),
+        env: undefined,
+      },
+      {
+        cmd: "ruff",
+        args: ["check", "--output-format", "json", "/project/src/root.py"],
+        cwd: process.cwd(),
+        env: undefined,
+      },
+    ]);
+    expect(client.session.prompt).not.toHaveBeenCalled();
+  });
 
   test("retries pending files when format or lint processing throws", async () => {
     vi.spyOn(fs, "existsSync").mockReturnValue(false);
@@ -407,12 +392,7 @@ describe("CodefmtPlugin integration", () => {
       },
     });
 
-    expect(calls.map((call) => call.cmd)).toEqual([
-      "black",
-      "black",
-      "isort",
-      "ruff",
-    ]);
+    expect(calls.map((call) => call.cmd)).toEqual(["black", "black", "isort", "ruff"]);
     expect(client.session.prompt).not.toHaveBeenCalled();
   });
 

@@ -1,5 +1,5 @@
 import path from "path";
-import { afterEach,describe, expect, test, vi } from "vitest";
+import { afterEach, describe, expect, test, vi } from "vitest";
 
 import type { BunShell } from "../shell";
 
@@ -8,18 +8,14 @@ type BunShellOutput = Awaited<ReturnType<BunShell>>;
 vi.mock("fs");
 import fs from "fs";
 
-import { executeToolDef,findRoot } from "../runner";
+import { executeToolDef, findRoot } from "../runner";
 import { shell } from "../shell";
 
 afterEach(() => {
   vi.restoreAllMocks();
 });
 
-function makeShellOutput(
-  exitCode: number,
-  stdout = "",
-  stderr = "",
-): BunShellOutput {
+function makeShellOutput(exitCode: number, stdout = "", stderr = ""): BunShellOutput {
   return {
     exitCode,
     stdout: Buffer.from(stdout),
@@ -70,9 +66,7 @@ describe("findRoot", () => {
       return p === "/project/.prettierrc";
     });
 
-    const result = findRoot("/project/src/components/Button.ts", [
-      ".prettierrc",
-    ]);
+    const result = findRoot("/project/src/components/Button.ts", [".prettierrc"]);
     expect(result).toBe("/project");
   });
 
@@ -81,9 +75,7 @@ describe("findRoot", () => {
       return p === "/project/src/.prettierrc" || p === "/project/.prettierrc";
     });
 
-    const result = findRoot("/project/src/components/Button.ts", [
-      ".prettierrc",
-    ]);
+    const result = findRoot("/project/src/components/Button.ts", [".prettierrc"]);
     expect(result).toBe("/project/src");
   });
 
@@ -99,10 +91,7 @@ describe("findRoot", () => {
       return p === "/project/biome.json";
     });
 
-    const result = findRoot("/project/src/file.ts", [
-      "biome.json",
-      "biome.jsonc",
-    ]);
+    const result = findRoot("/project/src/file.ts", ["biome.json", "biome.jsonc"]);
     expect(result).toBe("/project");
   });
 
@@ -169,9 +158,7 @@ describe("runTool", () => {
 
   test("returns error string when formatter exits non-zero with stderr", async () => {
     vi.spyOn(fs, "existsSync").mockReturnValue(false);
-    shell.setBackend(
-      makeShell(makeShellOutput(1, "", "SyntaxError: unexpected token")) as any,
-    );
+    shell.setBackend(makeShell(makeShellOutput(1, "", "SyntaxError: unexpected token")) as any);
 
     const result = await executeToolDef("/project/src/file.ts", {
       name: "prettier",
@@ -205,9 +192,7 @@ describe("runTool", () => {
 
   test("returns stdout when linter exits non-zero with stdout output", async () => {
     vi.spyOn(fs, "existsSync").mockReturnValue(false);
-    shell.setBackend(
-      makeShell(makeShellOutput(1, '[{"code": "E501"}]', "")) as any,
-    );
+    shell.setBackend(makeShell(makeShellOutput(1, '[{"code": "E501"}]', "")) as any);
 
     const result = await executeToolDef("/project/src/file.ts", {
       name: "ruff",

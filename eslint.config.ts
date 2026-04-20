@@ -22,14 +22,6 @@ export default defineConfig(
       ],
       "simple-import-sort/exports": "error",
       "simple-import-sort/imports": "error",
-      "max-len": [
-        "error",
-        {
-          code: 100,
-          tabWidth: 2,
-          ignoreUrls: true,
-        },
-      ],
     },
   },
   {

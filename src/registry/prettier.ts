@@ -2,18 +2,7 @@ import type { RegistryEntry } from "../types";
 
 const entry: RegistryEntry = {
   formatter: {
-    extensions: [
-      ".js",
-      ".ts",
-      ".jsx",
-      ".tsx",
-      ".css",
-      ".html",
-      ".json",
-      ".md",
-      ".yaml",
-      ".yml",
-    ],
+    extensions: [".js", ".ts", ".jsx", ".tsx", ".css", ".html", ".json", ".md", ".yaml", ".yml"],
     def: {
       args: ["--write"],
       markers: [
