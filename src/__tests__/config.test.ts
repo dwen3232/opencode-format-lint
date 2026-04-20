@@ -1,15 +1,6 @@
 import { describe, test, expect, vi, afterEach } from "vitest";
-import {
-  buildExtensionToToolsMap,
-  resolveToolDef,
-  loadConfig,
-} from "../config";
-import {
-  FORMATTER_DEFAULTS,
-  LINTER_DEFAULTS,
-  DEFAULT_FORMATTER_EXTENSIONS,
-  DEFAULT_LINTER_EXTENSIONS,
-} from "../registry/index";
+import { buildRuntimeToolMappings, loadConfig, resolveToolDef } from "../config";
+import { FORMATTER_DEFAULTS, LINTER_DEFAULTS } from "../registry/index";
 import type { CodefmtConfig } from "../schemas";
 import { logger } from "../logger";
 
@@ -20,84 +11,88 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
-describe("buildExtensionToToolsMap", () => {
-  test("inverts the default name→extensions registry into extension→names", () => {
-    const result = buildExtensionToToolsMap(
-      "formatters",
-      {},
-      DEFAULT_FORMATTER_EXTENSIONS,
-    );
-    expect(result[".ts"]).toContain("prettier");
-    expect(result[".py"]).toContain("black");
-    expect(result[".py"]).toContain("isort");
-    expect(result[".go"]).toContain("gofmt");
+describe("buildRuntimeToolMappings", () => {
+  test("builds default formatter and linter mappings", () => {
+    const { formatterToolsByExtension, linterToolsByExtension } =
+      buildRuntimeToolMappings({});
+
+    expect(formatterToolsByExtension[".ts"][0]?.name).toBe("prettier");
+    expect(formatterToolsByExtension[".py"].map((tool) => tool.name)).toEqual([
+      "black",
+      "isort",
+    ]);
+    expect(linterToolsByExtension[".ts"][0]?.name).toBe("eslint");
+    expect(linterToolsByExtension[".py"][0]?.name).toBe("ruff");
   });
 
   test("user formatters_by_ext fully replaces the default for that extension", () => {
-    const config: CodefmtConfig = {
+    const { formatterToolsByExtension } = buildRuntimeToolMappings({
       formatters_by_ext: { ".ts": ["biome"] },
-    };
-    const result = buildExtensionToToolsMap(
-      "formatters",
-      config,
-      DEFAULT_FORMATTER_EXTENSIONS,
-    );
-    expect(result[".ts"]).toEqual(["biome"]);
+    });
+
+    expect(formatterToolsByExtension[".ts"].map((tool) => tool.name)).toEqual([
+      "biome",
+    ]);
   });
 
   test("user linters_by_ext fully replaces the default for that extension", () => {
-    const config: CodefmtConfig = {
+    const { linterToolsByExtension } = buildRuntimeToolMappings({
       linters_by_ext: { ".ts": ["biome"] },
-    };
-    const result = buildExtensionToToolsMap(
-      "linters",
-      config,
-      DEFAULT_LINTER_EXTENSIONS,
-    );
-    expect(result[".ts"]).toEqual(["biome"]);
+    });
+
+    expect(linterToolsByExtension[".ts"].map((tool) => tool.name)).toEqual([
+      "biome",
+    ]);
   });
 
   test("user config only replaces specified extensions, leaving others intact", () => {
-    const config: CodefmtConfig = {
+    const { formatterToolsByExtension } = buildRuntimeToolMappings({
       formatters_by_ext: { ".ts": ["biome"] },
-    };
-    const result = buildExtensionToToolsMap(
-      "formatters",
-      config,
-      DEFAULT_FORMATTER_EXTENSIONS,
-    );
-    expect(result[".py"]).toContain("black");
+    });
+
+    expect(formatterToolsByExtension[".py"].map((tool) => tool.name)).toEqual([
+      "black",
+      "isort",
+    ]);
   });
 
   test("user config can add a new extension not in the defaults", () => {
-    const config: CodefmtConfig = {
+    const { formatterToolsByExtension } = buildRuntimeToolMappings({
       formatters_by_ext: { ".svelte": ["prettier"] },
-    };
-    const result = buildExtensionToToolsMap(
-      "formatters",
-      config,
-      DEFAULT_FORMATTER_EXTENSIONS,
-    );
-    expect(result[".svelte"]).toEqual(["prettier"]);
+    });
+
+    expect(formatterToolsByExtension[".svelte"].map((tool) => tool.name)).toEqual([
+      "prettier",
+    ]);
   });
 
-  test("user config can set an extension to an empty list to disable all tools for it", () => {
-    const config: CodefmtConfig = {
+  test("user config can set an extension to an empty list", () => {
+    const { linterToolsByExtension } = buildRuntimeToolMappings({
       linters_by_ext: { ".ts": [] },
-    };
-    const result = buildExtensionToToolsMap(
-      "linters",
-      config,
-      DEFAULT_LINTER_EXTENSIONS,
-    );
-    expect(result[".ts"]).toEqual([]);
+    });
+
+    expect(linterToolsByExtension[".ts"]).toEqual([]);
+  });
+
+  test("resolved tools include merged tool definitions", () => {
+    const { formatterToolsByExtension } = buildRuntimeToolMappings({
+      formatters: {
+        prettier: { cmd: "/usr/local/bin/prettier" },
+      },
+    });
+
+    expect(formatterToolsByExtension[".ts"][0]).toEqual({
+      name: "prettier",
+      kind: "formatter",
+      def: { ...FORMATTER_DEFAULTS.prettier, cmd: "/usr/local/bin/prettier" },
+    });
   });
 });
 
-describe("resolveDef", () => {
+describe("resolveToolDef", () => {
   test("returns registry defaults when no user override exists", () => {
     const result = resolveToolDef("prettier", "formatters", {});
-    expect(result).toEqual(FORMATTER_DEFAULTS["prettier"]);
+    expect(result).toEqual(FORMATTER_DEFAULTS.prettier);
   });
 
   test("user override merges on top of registry defaults", () => {
@@ -106,9 +101,11 @@ describe("resolveDef", () => {
         prettier: { args: ["--write", "--single-quote"] },
       },
     };
+
     const result = resolveToolDef("prettier", "formatters", config);
+
     expect(result.args).toEqual(["--write", "--single-quote"]);
-    expect(result.markers).toEqual(FORMATTER_DEFAULTS["prettier"]!.markers);
+    expect(result.markers).toEqual(FORMATTER_DEFAULTS.prettier!.markers);
   });
 
   test("user override can set require_markers independently", () => {
@@ -117,9 +114,11 @@ describe("resolveDef", () => {
         ruff: { require_markers: true },
       },
     };
+
     const result = resolveToolDef("ruff", "linters", config);
+
     expect(result.require_markers).toBe(true);
-    expect(result.args).toEqual(LINTER_DEFAULTS["ruff"]!.args);
+    expect(result.args).toEqual(LINTER_DEFAULTS.ruff!.args);
   });
 
   test("user override can set a custom cmd", () => {
@@ -128,7 +127,9 @@ describe("resolveDef", () => {
         prettier: { cmd: "/usr/local/bin/prettier" },
       },
     };
+
     const result = resolveToolDef("prettier", "formatters", config);
+
     expect(result.cmd).toBe("/usr/local/bin/prettier");
   });
 
@@ -143,7 +144,9 @@ describe("resolveDef", () => {
         "my-formatter": { cmd: "my-fmt", args: ["--fix"] },
       },
     };
+
     const result = resolveToolDef("my-formatter", "formatters", config);
+
     expect(result).toEqual({ cmd: "my-fmt", args: ["--fix"] });
   });
 });
@@ -151,7 +154,9 @@ describe("resolveDef", () => {
 describe("loadConfig", () => {
   test("returns empty object when no config file exists", () => {
     vi.spyOn(fs, "existsSync").mockReturnValue(false);
+
     const result = loadConfig("/some/project");
+
     expect(result).toEqual({});
   });
 
@@ -162,7 +167,9 @@ describe("loadConfig", () => {
     vi.spyOn(fs, "readFileSync").mockReturnValue(
       JSON.stringify({ formatters_by_ext: { ".ts": ["biome"] } }),
     );
+
     const result = loadConfig("/some/project");
+
     expect(result).toEqual({ formatters_by_ext: { ".ts": ["biome"] } });
   });
 
@@ -176,7 +183,9 @@ describe("loadConfig", () => {
         unknownField: true,
       }),
     );
+
     const result = loadConfig("/some/project");
+
     expect(result).not.toHaveProperty("unknownField");
   });
 
@@ -188,7 +197,9 @@ describe("loadConfig", () => {
     vi.spyOn(fs, "readFileSync").mockReturnValue(
       JSON.stringify({ formatters_by_ext: { ".ts": ["prettier"] } }),
     );
+
     const result = loadConfig("/some/project");
+
     expect(result).toEqual({ formatters_by_ext: { ".ts": ["prettier"] } });
   });
 
@@ -201,7 +212,9 @@ describe("loadConfig", () => {
       return JSON.stringify({ formatters_by_ext: { ".ts": ["prettier"] } });
     });
     const errorSpy = vi.spyOn(logger, "error").mockImplementation(() => {});
+
     const result = loadConfig("/some/project");
+
     expect(errorSpy).toHaveBeenCalledWith(
       expect.stringContaining("/some/project/.opencode/codefmt.json"),
       expect.any(Object),
@@ -213,7 +226,9 @@ describe("loadConfig", () => {
     vi.spyOn(fs, "existsSync").mockReturnValue(true);
     vi.spyOn(fs, "readFileSync").mockReturnValue("{ not valid json }");
     const errorSpy = vi.spyOn(logger, "error").mockImplementation(() => {});
+
     const result = loadConfig("/some/project");
+
     expect(errorSpy).toHaveBeenCalledWith(
       expect.stringContaining("/some/project/.opencode/codefmt.json"),
     );

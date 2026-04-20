@@ -1,15 +1,7 @@
 import fs from "fs";
 import path from "path";
-import type { ToolDef } from "./schemas";
+import type { ResolvedTool } from "./types";
 import { shell } from "./shell";
-
-// TODO: this seems weird, let's remove it. There's only one way to run a tool, let's not abstract like this
-export type RunToolFn = (
-  filePath: string,
-  name: string,
-  def: ToolDef,
-  isFormatter: boolean,
-) => Promise<string | null>;
 
 /**
  * Walks upward from a file to find the nearest directory containing any of the
@@ -34,10 +26,9 @@ export function findRoot(filePath: string, markers: string[]): string | null {
  */
 export async function executeToolDef(
   filePath: string,
-  name: string,
-  def: ToolDef,
-  isFormatter: boolean,
+  tool: ResolvedTool,
 ): Promise<string | null> {
+  const { name, def } = tool;
   const markers = def.markers ?? [];
   const require_markers = def.require_markers ?? false;
 
@@ -61,7 +52,7 @@ export async function executeToolDef(
     .quiet()
     .nothrow();
 
-  if (isFormatter) {
+  if (tool.kind === "formatter") {
     if (result.exitCode !== 0 && result.stderr.toString().trim()) {
       return `[${name}] ${result.stderr.toString().trim()}`;
     }

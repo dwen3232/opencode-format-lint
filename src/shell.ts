@@ -6,6 +6,7 @@ export type BunShell = PluginInput["$"];
  * Raised when tool execution is attempted before the Bun shell backend has
  * been injected by the plugin entrypoint.
  */
+// TODO: this is super unneeded
 export class ShellNotInitializedError extends Error {
   constructor() {
     super(

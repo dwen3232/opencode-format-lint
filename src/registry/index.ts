@@ -1,3 +1,5 @@
+// TODO: all of this seems like too much manual config
+
 import type { ToolDef } from "../schemas";
 import prettier from "./prettier";
 import biome from "./biome";

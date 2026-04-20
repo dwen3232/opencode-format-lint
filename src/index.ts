@@ -1,12 +1,7 @@
 import type { Plugin } from "@opencode-ai/plugin";
 import type { Event } from "@opencode-ai/sdk/v2";
-import { loadConfig, buildExtensionToToolsMap } from "./config";
-import { executeToolDef } from "./runner";
+import { buildRuntimeToolMappings, loadConfig } from "./config";
 import { formatFiles, lintFiles, buildLintReport } from "./processor";
-import {
-  DEFAULT_FORMATTER_EXTENSIONS,
-  DEFAULT_LINTER_EXTENSIONS,
-} from "./registry/index";
 import { logger } from "./logger";
 import { shell } from "./shell";
 
@@ -24,21 +19,8 @@ export const CodefmtPlugin: Plugin = async ({ client, $, directory }) => {
   shell.setBackend($);
 
   const config = loadConfig(directory);
-
-  // OPENCODE TODO: this seems really weird to do, can we just get rid of the `kind` param, then just
-  // return both mappings? also, i'm not sure about the value of passing in the default mapping into the func,
-  // I feel like it's fine to just read it in from global scope. We want to be functional, but it's okay to read
-  // globals sometimes
-  const formatterExtensionToToolsMap = buildExtensionToToolsMap(
-    "formatters",
-    config,
-    DEFAULT_FORMATTER_EXTENSIONS,
-  );
-  const linterExtensionToToolsMap = buildExtensionToToolsMap(
-    "linters",
-    config,
-    DEFAULT_LINTER_EXTENSIONS,
-  );
+  const { formatterToolsByExtension, linterToolsByExtension } =
+    buildRuntimeToolMappings(config);
   const pendingBySession = new Map<string, Set<string>>();
 
   const isParentSession = async (sessionID: string): Promise<boolean> => {
@@ -54,18 +36,26 @@ export const CodefmtPlugin: Plugin = async ({ client, $, directory }) => {
 
   return {
     "tool.execute.after": async (input) => {
+      // possible to mutate a file using bash, but that's too difficult to detect
       if (input.tool !== "edit" && input.tool !== "write") return;
+
+      // guaranteed to have `filePath` if it's an edit or write tool
       const filePath = (input.args as { filePath?: string })?.filePath;
       if (!filePath) return;
+
+      // TODO: what do we do about child sessions?
       if (!pendingBySession.has(input.sessionID)) {
         pendingBySession.set(input.sessionID, new Set());
       }
       pendingBySession.get(input.sessionID)!.add(filePath);
+
       logger.debug("tracked file", { sessionID: input.sessionID, filePath });
     },
 
     event: async ({ event: _event }) => {
       const event = _event as unknown as Event;
+
+      // execute formatters and linters after turn is over
       if (event.type !== "session.idle") return;
 
       const { sessionID } = event.properties;
@@ -77,24 +67,13 @@ export const CodefmtPlugin: Plugin = async ({ client, $, directory }) => {
 
       const files = pendingBySession.get(sessionID);
       if (!files || files.size === 0) return;
-      const fileList = [...files];
       pendingBySession.delete(sessionID);
 
-      logger.info("running format+lint", { sessionID, count: fileList.length });
+      logger.info("running format+lint", { sessionID, count: files.size });
 
-      await formatFiles(
-        fileList,
-        formatterExtensionToToolsMap,
-        config,
-        executeToolDef,
-      );
+      await formatFiles(files, formatterToolsByExtension);
 
-      const errors = await lintFiles(
-        fileList,
-        linterExtensionToToolsMap,
-        config,
-        executeToolDef,
-      );
+      const errors = await lintFiles(files, linterToolsByExtension);
 
       if (errors.length > 0) {
         const report = buildLintReport(errors);

@@ -1,8 +1,14 @@
 import fs from "fs";
 import path from "path";
 import type { CodefmtConfig, ToolDef } from "./schemas";
+import type { ResolvedTool, RuntimeToolMappings } from "./types";
 import { CodefmtConfigSchema } from "./schemas";
-import { FORMATTER_DEFAULTS, LINTER_DEFAULTS } from "./registry/index";
+import {
+  DEFAULT_FORMATTER_EXTENSIONS,
+  DEFAULT_LINTER_EXTENSIONS,
+  FORMATTER_DEFAULTS,
+  LINTER_DEFAULTS,
+} from "./registry/index";
 import { logger } from "./logger";
 
 const CONFIG_NAME = "codefmt.json";
@@ -33,34 +39,81 @@ export function loadConfig(directory: string): CodefmtConfig {
       }
     }
   }
+  // TODO: should we just create an empty config if it doesn't exist?
   return {};
 }
 
-/**
- * Inverts the registry's tool-to-extensions mapping into the runtime
- * extension-to-tools mapping, then applies user overrides per extension.
- */
-export function buildExtensionToToolsMap(
-  kind: "formatters" | "linters",
-  config: CodefmtConfig,
-  defaultExtensionToToolsMap: Record<string, string[]>,
+function invertToolToExtensionsMap(
+  toolToExtensionsMap: Record<string, string[]>,
 ): Record<string, string[]> {
   const extensionToToolsMap: Record<string, string[]> = {};
-  // OPENCODE TODO: no double for loops, can we do this functionaly?
-  for (const [toolName, exts] of Object.entries(defaultExtensionToToolsMap)) {
-    for (const ext of exts) {
-      if (!extensionToToolsMap[ext]) extensionToToolsMap[ext] = [];
-      extensionToToolsMap[ext].push(toolName);
-    }
-  }
-  const userByExtension =
-    kind === "formatters" ? config.formatters_by_ext : config.linters_by_ext;
-  if (userByExtension) {
-    for (const [ext, tools] of Object.entries(userByExtension)) {
-      extensionToToolsMap[ext] = tools;
+  for (const [toolName, extensions] of Object.entries(toolToExtensionsMap)) {
+    for (const extension of extensions) {
+      if (!extensionToToolsMap[extension]) extensionToToolsMap[extension] = [];
+      extensionToToolsMap[extension].push(toolName);
     }
   }
   return extensionToToolsMap;
+}
+
+/**
+ * Builds the runtime execution plan for both formatter and linter execution,
+ * applying user per-extension overrides and resolving tool definitions once.
+ */
+export function buildRuntimeToolMappings(
+  config: CodefmtConfig,
+): RuntimeToolMappings {
+  const formatterToolNamesByExtension = invertToolToExtensionsMap(
+    DEFAULT_FORMATTER_EXTENSIONS,
+  );
+  const linterToolNamesByExtension = invertToolToExtensionsMap(
+    DEFAULT_LINTER_EXTENSIONS,
+  );
+
+  for (const [extension, tools] of Object.entries(
+    config.formatters_by_ext ?? {},
+  )) {
+    formatterToolNamesByExtension[extension] = tools;
+  }
+
+  for (const [extension, tools] of Object.entries(
+    config.linters_by_ext ?? {},
+  )) {
+    linterToolNamesByExtension[extension] = tools;
+  }
+
+  return {
+    formatterToolsByExtension: resolveToolsByExtension(
+      "formatters",
+      config,
+      formatterToolNamesByExtension,
+    ),
+    linterToolsByExtension: resolveToolsByExtension(
+      "linters",
+      config,
+      linterToolNamesByExtension,
+    ),
+  };
+}
+
+function resolveToolsByExtension(
+  kind: "formatters" | "linters",
+  config: CodefmtConfig,
+  extensionToToolNamesMap: Record<string, string[]>,
+): Record<string, ResolvedTool[]> {
+  const toolsByExtension: Record<string, ResolvedTool[]> = {};
+
+  for (const [extension, toolNames] of Object.entries(
+    extensionToToolNamesMap,
+  )) {
+    toolsByExtension[extension] = toolNames.map((name) => ({
+      name,
+      kind: kind === "formatters" ? "formatter" : "linter",
+      def: resolveToolDef(name, kind, config),
+    }));
+  }
+
+  return toolsByExtension;
 }
 
 /**

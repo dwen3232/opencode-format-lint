@@ -1,6 +1,8 @@
 import { describe, test, expect, vi, afterEach } from "vitest";
 import path from "path";
-import type { BunShellOutput } from "@opencode-ai/plugin/dist/shell.js";
+import type { BunShell } from "../shell";
+
+type BunShellOutput = Awaited<ReturnType<BunShell>>;
 
 vi.mock("fs");
 import fs from "fs";
@@ -40,7 +42,7 @@ function makeShell(output: BunShellOutput) {
     text: () => Promise.resolve(""),
     json: () => Promise.resolve(null),
     arrayBuffer: () => Promise.resolve(new ArrayBuffer(0)),
-    blob: () => Promise.resolve(new Blob()),
+    blob: () => Promise.resolve(new Blob([])),
     throws: () => promise,
   });
 
@@ -119,13 +121,15 @@ describe("runTool", () => {
 
     const result = await executeToolDef(
       "/project/src/file.ts",
-      "eslint",
       {
-        args: ["--format", "json"],
-        markers: ["eslint.config.js"],
-        require_markers: true,
+        name: "eslint",
+        kind: "linter",
+        def: {
+          args: ["--format", "json"],
+          markers: ["eslint.config.js"],
+          require_markers: true,
+        },
       },
-      false,
     );
 
     expect(result).toBeNull();
@@ -137,13 +141,15 @@ describe("runTool", () => {
 
     const result = await executeToolDef(
       "/project/src/file.ts",
-      "prettier",
       {
-        args: ["--write"],
-        markers: [],
-        require_markers: false,
+        name: "prettier",
+        kind: "formatter",
+        def: {
+          args: ["--write"],
+          markers: [],
+          require_markers: false,
+        },
       },
-      true,
     );
 
     expect(result).toBeNull();
@@ -155,13 +161,15 @@ describe("runTool", () => {
 
     const result = await executeToolDef(
       "/project/src/file.ts",
-      "prettier",
       {
-        args: ["--write"],
-        markers: [],
-        require_markers: false,
+        name: "prettier",
+        kind: "formatter",
+        def: {
+          args: ["--write"],
+          markers: [],
+          require_markers: false,
+        },
       },
-      true,
     );
 
     expect(result).toBeNull();
@@ -175,13 +183,15 @@ describe("runTool", () => {
 
     const result = await executeToolDef(
       "/project/src/file.ts",
-      "prettier",
       {
-        args: ["--write"],
-        markers: [],
-        require_markers: false,
+        name: "prettier",
+        kind: "formatter",
+        def: {
+          args: ["--write"],
+          markers: [],
+          require_markers: false,
+        },
       },
-      true,
     );
 
     expect(result).toBe("[prettier] SyntaxError: unexpected token");
@@ -193,13 +203,15 @@ describe("runTool", () => {
 
     const result = await executeToolDef(
       "/project/src/file.ts",
-      "ruff",
       {
-        args: ["check", "--output-format", "json"],
-        markers: [],
-        require_markers: false,
+        name: "ruff",
+        kind: "linter",
+        def: {
+          args: ["check", "--output-format", "json"],
+          markers: [],
+          require_markers: false,
+        },
       },
-      false,
     );
 
     expect(result).toBeNull();
@@ -213,13 +225,15 @@ describe("runTool", () => {
 
     const result = await executeToolDef(
       "/project/src/file.ts",
-      "ruff",
       {
-        args: ["check", "--output-format", "json"],
-        markers: [],
-        require_markers: false,
+        name: "ruff",
+        kind: "linter",
+        def: {
+          args: ["check", "--output-format", "json"],
+          markers: [],
+          require_markers: false,
+        },
       },
-      false,
     );
 
     expect(result).toBe('[ruff] [{"code": "E501"}]');
@@ -231,15 +245,17 @@ describe("runTool", () => {
 
     const result = await executeToolDef(
       "/project/src/file.ts",
-      "ruff",
       {
-        args: ["check"],
-        markers: [],
-        require_markers: false,
+        name: "ruff",
+        kind: "linter",
+        def: {
+          args: ["check"],
+          markers: [],
+          require_markers: false,
+        },
       },
-      false,
     );
-
+  
     expect(result).toBe("[ruff] exit code 1");
   });
 });
