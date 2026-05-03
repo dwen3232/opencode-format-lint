@@ -1,10 +1,8 @@
 import type { Plugin } from "@opencode-ai/plugin";
 import type { Event } from "@opencode-ai/sdk/v2";
 
-import { buildRuntimeToolMappings, loadConfig } from "./config";
-import { logger } from "./logger";
-import { buildLintReport, formatFiles, lintFiles } from "./processor";
-import { shell } from "./shell";
+import { createPluginRuntime } from "./plugin-runtime";
+import { buildLintReport } from "./processor";
 
 interface ApplyPatchMetadataFile {
   filePath?: string;
@@ -23,16 +21,7 @@ interface ToolExecuteAfterOutput {
  * and lints them once when the parent session becomes idle.
  */
 export const FormatLintPlugin: Plugin = async ({ client, $, directory }) => {
-  // setting singletons to move plugin constants to global scope
-  logger.setBackend((level, message, extra) =>
-    client.app.log({
-      body: { service: "opencode-format-lint", level, message, extra },
-    }),
-  );
-  shell.setBackend($);
-
-  const config = loadConfig(directory);
-  const { formatterToolsByExtension, linterToolsByExtension } = buildRuntimeToolMappings(config);
+  const runtime = createPluginRuntime({ client, $, directory });
   const pendingBySession = new Map<string, Set<string>>();
 
   const getTrackedFiles = (
@@ -92,14 +81,14 @@ export const FormatLintPlugin: Plugin = async ({ client, $, directory }) => {
     }
   };
 
-  logger.info("plugin loaded");
+  runtime.logger.info("plugin loaded");
 
   return {
     "tool.execute.after": async (input, output) => {
       // possible to mutate a file using bash, but that's too difficult to detect
       const filePaths = getTrackedFiles(input.tool, input.args, output);
       if (input.tool === "apply_patch" && filePaths.length === 0) {
-        logger.warn("apply_patch metadata.files missing; skipping track", {
+        runtime.logger.warn("apply_patch metadata.files missing; skipping track", {
           sessionID: input.sessionID,
         });
       }
@@ -110,7 +99,7 @@ export const FormatLintPlugin: Plugin = async ({ client, $, directory }) => {
       try {
         rootSessionID = await getRootSessionID(input.sessionID);
       } catch (error) {
-        logger.error("failed to resolve root session while tracking file", {
+        runtime.logger.error("failed to resolve root session while tracking file", {
           sessionID: input.sessionID,
           filePaths,
           error: String(error),
@@ -120,7 +109,7 @@ export const FormatLintPlugin: Plugin = async ({ client, $, directory }) => {
 
       addPendingFiles(rootSessionID, filePaths);
 
-      logger.info("tracked files", {
+      runtime.logger.info("tracked files", {
         rootSessionID,
         sessionID: input.sessionID,
         tool: input.tool,
@@ -141,15 +130,15 @@ export const FormatLintPlugin: Plugin = async ({ client, $, directory }) => {
       if (!files || files.size === 0) return;
       pendingBySession.delete(sessionID);
 
-      logger.info("running format+lint", { sessionID, count: files.size });
+      runtime.logger.info("running format+lint", { sessionID, count: files.size });
 
       let errors: string[];
       try {
-        await formatFiles(files, formatterToolsByExtension, directory);
-        errors = await lintFiles(files, linterToolsByExtension, directory);
+        await runtime.formatFiles(files, runtime.formatterToolsByExtension, directory);
+        errors = await runtime.lintFiles(files, runtime.linterToolsByExtension, directory);
       } catch (error) {
         addPendingFiles(sessionID, files);
-        logger.error("format+lint failed", {
+        runtime.logger.error("format+lint failed", {
           sessionID,
           count: files.size,
           error: String(error),
@@ -159,7 +148,7 @@ export const FormatLintPlugin: Plugin = async ({ client, $, directory }) => {
 
       if (errors.length > 0) {
         const report = buildLintReport(errors);
-        logger.info("injecting lint report", {
+        runtime.logger.info("injecting lint report", {
           sessionID,
           errorCount: errors.length,
         });
@@ -169,7 +158,7 @@ export const FormatLintPlugin: Plugin = async ({ client, $, directory }) => {
             body: { parts: [{ type: "text", text: report }] },
           });
         } catch (e) {
-          logger.error("failed to inject lint report", { error: String(e) });
+          runtime.logger.error("failed to inject lint report", { error: String(e) });
         }
       }
     },

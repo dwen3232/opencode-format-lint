@@ -1,7 +1,7 @@
 import fs from "fs";
 import path from "path";
 
-import { shell } from "./shell";
+import type { BunShell } from "./shell";
 import type { ResolvedTool } from "./types";
 
 /**
@@ -25,43 +25,44 @@ export function findRoot(filePath: string, markers: string[]): string | null {
  * Executes a formatter or linter for a single file and normalizes the result
  * into either `null` or a user-facing error string.
  */
-export async function executeToolDef(
-  filePath: string,
-  tool: ResolvedTool,
-  fallbackCwd: string,
-): Promise<string | null> {
-  const { name, def } = tool;
-  const markers = def.markers ?? [];
-  const require_markers = def.require_markers ?? false;
+export function createExecuteToolDef($: BunShell) {
+  return async function executeToolDef(
+    filePath: string,
+    tool: ResolvedTool,
+    fallbackCwd: string,
+  ): Promise<string | null> {
+    const { name, def } = tool;
+    const markers = def.markers ?? [];
+    const require_markers = def.require_markers ?? false;
 
-  let cwd: string;
-  const foundRoot = findRoot(filePath, markers);
-  if (foundRoot) {
-    cwd = foundRoot;
-  } else if (require_markers) {
-    return null;
-  } else {
-    cwd = fallbackCwd;
-  }
-
-  const cmd = resolveCommand(def.cmd ?? name, cwd);
-  const args = [...(def.args ?? []), filePath];
-
-  const $ = shell.get();
-  const result = await $`${cmd} ${args}`.cwd(cwd).env(def.env).quiet().nothrow();
-
-  if (tool.kind === "formatter") {
-    if (result.exitCode !== 0 && result.stderr.toString().trim()) {
-      return `[${name}] ${result.stderr.toString().trim()}`;
+    let cwd: string;
+    const foundRoot = findRoot(filePath, markers);
+    if (foundRoot) {
+      cwd = foundRoot;
+    } else if (require_markers) {
+      return null;
+    } else {
+      cwd = fallbackCwd;
     }
-    return null;
-  } else {
-    if (result.exitCode !== 0) {
-      const output = result.stdout.toString().trim() || result.stderr.toString().trim();
-      return output ? `[${name}] ${output}` : `[${name}] exit code ${result.exitCode}`;
+
+    const cmd = resolveCommand(def.cmd ?? name, cwd);
+    const args = [...(def.args ?? []), filePath];
+
+    const result = await $`${cmd} ${args}`.cwd(cwd).env(def.env).quiet().nothrow();
+
+    if (tool.kind === "formatter") {
+      if (result.exitCode !== 0 && result.stderr.toString().trim()) {
+        return `[${name}] ${result.stderr.toString().trim()}`;
+      }
+      return null;
+    } else {
+      if (result.exitCode !== 0) {
+        const output = result.stdout.toString().trim() || result.stderr.toString().trim();
+        return output ? `[${name}] ${output}` : `[${name}] exit code ${result.exitCode}`;
+      }
+      return null;
     }
-    return null;
-  }
+  };
 }
 
 function resolveCommand(command: string, cwd: string): string {

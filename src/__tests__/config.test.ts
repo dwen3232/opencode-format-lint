@@ -1,7 +1,6 @@
 import { afterEach, describe, expect, test, vi } from "vitest";
 
-import { buildRuntimeToolMappings, loadConfig, resolveToolDef } from "../config";
-import { logger } from "../logger";
+import { buildRuntimeToolMappings, createLoadConfig, resolveToolDef } from "../config";
 import { FORMATTER_DEFAULTS, LINTER_DEFAULTS } from "../registry/index";
 import type { CodefmtConfig } from "../schemas";
 
@@ -11,6 +10,20 @@ import fs from "fs";
 afterEach(() => {
   vi.restoreAllMocks();
 });
+
+function makeLoadConfig() {
+  const logger = {
+    debug: vi.fn(),
+    info: vi.fn(),
+    warn: vi.fn(),
+    error: vi.fn(),
+  };
+
+  return {
+    logger,
+    loadConfig: createLoadConfig(logger),
+  };
+}
 
 describe("buildRuntimeToolMappings", () => {
   test("returns no formatter or linter mappings when no extensions are configured", () => {
@@ -143,6 +156,7 @@ describe("resolveToolDef", () => {
 describe("loadConfig", () => {
   test("returns empty object when no config file exists", () => {
     vi.spyOn(fs, "existsSync").mockReturnValue(false);
+    const { loadConfig } = makeLoadConfig();
 
     const result = loadConfig("/some/project");
 
@@ -156,6 +170,7 @@ describe("loadConfig", () => {
     vi.spyOn(fs, "readFileSync").mockReturnValue(
       JSON.stringify({ formatters_by_ext: { ".ts": ["biome"] } }),
     );
+    const { loadConfig } = makeLoadConfig();
 
     const result = loadConfig("/some/project");
 
@@ -172,6 +187,7 @@ describe("loadConfig", () => {
         unknownField: true,
       }),
     );
+    const { loadConfig } = makeLoadConfig();
 
     const result = loadConfig("/some/project");
 
@@ -186,6 +202,7 @@ describe("loadConfig", () => {
     vi.spyOn(fs, "readFileSync").mockReturnValue(
       JSON.stringify({ formatters_by_ext: { ".ts": ["prettier"] } }),
     );
+    const { loadConfig } = makeLoadConfig();
 
     const result = loadConfig("/some/project");
 
@@ -200,11 +217,11 @@ describe("loadConfig", () => {
       }
       return JSON.stringify({ formatters_by_ext: { ".ts": ["prettier"] } });
     });
-    const errorSpy = vi.spyOn(logger, "warn").mockImplementation(() => {});
+    const { logger, loadConfig } = makeLoadConfig();
 
     const result = loadConfig("/some/project");
 
-    expect(errorSpy).toHaveBeenCalledWith(
+    expect(logger.warn).toHaveBeenCalledWith(
       expect.stringContaining("/some/project/.opencode/codefmt.json"),
       expect.any(Object),
     );
@@ -214,11 +231,11 @@ describe("loadConfig", () => {
   test("returns empty object when config file contains invalid JSON", () => {
     vi.spyOn(fs, "existsSync").mockReturnValue(true);
     vi.spyOn(fs, "readFileSync").mockReturnValue("{ not valid json }");
-    const errorSpy = vi.spyOn(logger, "warn").mockImplementation(() => {});
+    const { logger, loadConfig } = makeLoadConfig();
 
     const result = loadConfig("/some/project");
 
-    expect(errorSpy).toHaveBeenCalledWith(
+    expect(logger.warn).toHaveBeenCalledWith(
       expect.stringContaining("/some/project/.opencode/codefmt.json"),
     );
     expect(result).toEqual({});

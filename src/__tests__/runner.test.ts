@@ -8,8 +8,7 @@ type BunShellOutput = Awaited<ReturnType<BunShell>>;
 vi.mock("fs");
 import fs from "fs";
 
-import { executeToolDef, findRoot } from "../runner";
-import { shell } from "../shell";
+import { createExecuteToolDef, findRoot } from "../runner";
 
 afterEach(() => {
   vi.restoreAllMocks();
@@ -108,6 +107,7 @@ describe("findRoot", () => {
 describe("runTool", () => {
   test("returns null when require_markers is true and no marker is found", async () => {
     vi.spyOn(fs, "existsSync").mockReturnValue(false);
+    const executeToolDef = createExecuteToolDef(makeShell(makeShellOutput(0)) as any);
 
     const result = await executeToolDef(
       "/project/src/file.ts",
@@ -128,7 +128,7 @@ describe("runTool", () => {
 
   test("returns null when formatter exits zero", async () => {
     vi.spyOn(fs, "existsSync").mockReturnValue(false);
-    shell.setBackend(makeShell(makeShellOutput(0)) as any);
+    const executeToolDef = createExecuteToolDef(makeShell(makeShellOutput(0)) as any);
 
     const result = await executeToolDef(
       "/project/src/file.ts",
@@ -149,7 +149,7 @@ describe("runTool", () => {
 
   test("returns null when formatter exits non-zero but stderr is empty", async () => {
     vi.spyOn(fs, "existsSync").mockReturnValue(false);
-    shell.setBackend(makeShell(makeShellOutput(1, "", "")) as any);
+    const executeToolDef = createExecuteToolDef(makeShell(makeShellOutput(1, "", "")) as any);
 
     const result = await executeToolDef(
       "/project/src/file.ts",
@@ -170,7 +170,9 @@ describe("runTool", () => {
 
   test("returns error string when formatter exits non-zero with stderr", async () => {
     vi.spyOn(fs, "existsSync").mockReturnValue(false);
-    shell.setBackend(makeShell(makeShellOutput(1, "", "SyntaxError: unexpected token")) as any);
+    const executeToolDef = createExecuteToolDef(
+      makeShell(makeShellOutput(1, "", "SyntaxError: unexpected token")) as any,
+    );
 
     const result = await executeToolDef(
       "/project/src/file.ts",
@@ -191,7 +193,7 @@ describe("runTool", () => {
 
   test("returns null when linter exits zero", async () => {
     vi.spyOn(fs, "existsSync").mockReturnValue(false);
-    shell.setBackend(makeShell(makeShellOutput(0)) as any);
+    const executeToolDef = createExecuteToolDef(makeShell(makeShellOutput(0)) as any);
 
     const result = await executeToolDef(
       "/project/src/file.ts",
@@ -216,7 +218,7 @@ describe("runTool", () => {
     });
 
     const shellBackend = makeShell(makeShellOutput(0));
-    shell.setBackend(shellBackend as any);
+    const executeToolDef = createExecuteToolDef(shellBackend as any);
 
     await executeToolDef(
       "/project/src/file.ts",
@@ -241,7 +243,9 @@ describe("runTool", () => {
 
   test("returns stdout when linter exits non-zero with stdout output", async () => {
     vi.spyOn(fs, "existsSync").mockReturnValue(false);
-    shell.setBackend(makeShell(makeShellOutput(1, '[{"code": "E501"}]', "")) as any);
+    const executeToolDef = createExecuteToolDef(
+      makeShell(makeShellOutput(1, '[{"code": "E501"}]', "")) as any,
+    );
 
     const result = await executeToolDef(
       "/project/src/file.ts",
@@ -262,7 +266,7 @@ describe("runTool", () => {
 
   test("returns exit code when linter exits non-zero with no output", async () => {
     vi.spyOn(fs, "existsSync").mockReturnValue(false);
-    shell.setBackend(makeShell(makeShellOutput(1, "", "")) as any);
+    const executeToolDef = createExecuteToolDef(makeShell(makeShellOutput(1, "", "")) as any);
 
     const result = await executeToolDef(
       "/project/src/file.ts",

@@ -1,37 +1,46 @@
 import path from "path";
 
-import { logger } from "./logger";
-import { executeToolDef } from "./runner";
+import type { LoggerLike } from "./logger";
 import type { ResolvedTool } from "./types";
 
-export async function formatFiles(
-  files: Iterable<string>,
-  formatterToolsByExtension: Record<string, ResolvedTool[]>,
+type ExecuteToolDef = (
+  filePath: string,
+  tool: ResolvedTool,
   fallbackCwd: string,
-): Promise<void> {
-  for (const filePath of files) {
-    const ext = path.extname(filePath) || path.basename(filePath);
-    for (const tool of formatterToolsByExtension[ext] ?? []) {
-      const err = await executeToolDef(filePath, tool, fallbackCwd);
-      if (err) logger.warn("formatter error", { name: tool.name, filePath, err });
-    }
-  }
-}
+) => Promise<string | null>;
 
-export async function lintFiles(
-  files: Iterable<string>,
-  linterToolsByExtension: Record<string, ResolvedTool[]>,
-  fallbackCwd: string,
-): Promise<string[]> {
-  const errors: string[] = [];
-  for (const filePath of files) {
-    const ext = path.extname(filePath) || path.basename(filePath);
-    for (const tool of linterToolsByExtension[ext] ?? []) {
-      const err = await executeToolDef(filePath, tool, fallbackCwd);
-      if (err) errors.push(`**${filePath}**\n${err}`);
+export function createProcessor(runtime: { executeToolDef: ExecuteToolDef; logger: LoggerLike }) {
+  async function formatFiles(
+    files: Iterable<string>,
+    formatterToolsByExtension: Record<string, ResolvedTool[]>,
+    fallbackCwd: string,
+  ): Promise<void> {
+    for (const filePath of files) {
+      const ext = path.extname(filePath) || path.basename(filePath);
+      for (const tool of formatterToolsByExtension[ext] ?? []) {
+        const err = await runtime.executeToolDef(filePath, tool, fallbackCwd);
+        if (err) runtime.logger.warn("formatter error", { name: tool.name, filePath, err });
+      }
     }
   }
-  return errors;
+
+  async function lintFiles(
+    files: Iterable<string>,
+    linterToolsByExtension: Record<string, ResolvedTool[]>,
+    fallbackCwd: string,
+  ): Promise<string[]> {
+    const errors: string[] = [];
+    for (const filePath of files) {
+      const ext = path.extname(filePath) || path.basename(filePath);
+      for (const tool of linterToolsByExtension[ext] ?? []) {
+        const err = await runtime.executeToolDef(filePath, tool, fallbackCwd);
+        if (err) errors.push(`**${filePath}**\n${err}`);
+      }
+    }
+    return errors;
+  }
+
+  return { formatFiles, lintFiles };
 }
 
 export function buildLintReport(errors: string[]): string {

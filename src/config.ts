@@ -1,7 +1,7 @@
 import fs from "fs";
 import path from "path";
 
-import { logger } from "./logger";
+import type { LoggerLike } from "./logger";
 import { FORMATTER_DEFAULTS, LINTER_DEFAULTS } from "./registry/index";
 import type { CodefmtConfig, ToolDef } from "./schemas";
 import { CodefmtConfigSchema } from "./schemas";
@@ -13,29 +13,32 @@ const CONFIG_NAME = "codefmt.json";
  * Loads the first valid codefmt config, preferring project-local config over
  * the user-level fallback.
  */
-export function loadConfig(directory: string): CodefmtConfig {
-  const projectConfigPath = path.join(directory, ".opencode", CONFIG_NAME);
-  const userConfigPath = path.join(process.env.HOME ?? "~", ".config", "opencode", CONFIG_NAME);
+export function createLoadConfig(logger: LoggerLike) {
+  return function loadConfig(directory: string): CodefmtConfig {
+    const projectConfigPath = path.join(directory, ".opencode", CONFIG_NAME);
+    const userConfigPath = path.join(process.env.HOME ?? "~", ".config", "opencode", CONFIG_NAME);
 
-  const locations = [projectConfigPath, userConfigPath];
-  for (const loc of locations) {
-    if (fs.existsSync(loc)) {
-      try {
-        const raw = JSON.parse(fs.readFileSync(loc, "utf8"));
-        const result = CodefmtConfigSchema.safeParse(raw);
-        if (result.success) {
-          return result.data;
+    const locations = [projectConfigPath, userConfigPath];
+    for (const loc of locations) {
+      if (fs.existsSync(loc)) {
+        try {
+          const raw = JSON.parse(fs.readFileSync(loc, "utf8"));
+          const result = CodefmtConfigSchema.safeParse(raw);
+          if (result.success) {
+            return result.data;
+          }
+          logger.warn(`Invalid config at ${loc}`, {
+            issues: result.error.issues,
+          });
+        } catch {
+          logger.warn(`Failed to parse config at ${loc}`);
         }
-        logger.warn(`Invalid config at ${loc}`, {
-          issues: result.error.issues,
-        });
-      } catch {
-        logger.warn(`Failed to parse config at ${loc}`);
       }
     }
-  }
-  // TODO: add a default config object that we write to the userConfigPath if it doesn't exist, then return it
-  return {};
+
+    // TODO: add a default config object that we write to the userConfigPath if it doesn't exist, then return it
+    return {};
+  };
 }
 
 /**

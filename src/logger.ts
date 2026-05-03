@@ -1,33 +1,40 @@
 type Level = "debug" | "info" | "warn" | "error";
 type LogFn = (level: Level, msg: string, extra?: Record<string, unknown>) => void;
 
-/**
- * Global logger singleton that defaults to stderr until OpenCode injects its
- * native logging backend during plugin initialization.
- */
-export class Logger {
-  private _log: LogFn = (level, msg) =>
-    process.stderr.write(`[opencode-format-lint] ${level}: ${msg}\n`);
+export interface LoggerLike {
+  debug(msg: string, extra?: Record<string, unknown>): void;
+  info(msg: string, extra?: Record<string, unknown>): void;
+  warn(msg: string, extra?: Record<string, unknown>): void;
+  error(msg: string, extra?: Record<string, unknown>): void;
+}
 
-  setBackend(fn: LogFn): void {
-    this._log = fn;
-  }
+/**
+ * Logger wrapper that defaults to stderr until a plugin-specific runtime injects its
+ * OpenCode logging backend.
+ */
+export class Logger implements LoggerLike {
+  constructor(
+    private readonly log: LogFn = (level, msg) =>
+      process.stderr.write(`[opencode-format-lint] ${level}: ${msg}\n`),
+  ) {}
 
   debug(msg: string, extra?: Record<string, unknown>): void {
-    this._log("debug", msg, extra);
+    this.log("debug", msg, extra);
   }
 
   info(msg: string, extra?: Record<string, unknown>): void {
-    this._log("info", msg, extra);
+    this.log("info", msg, extra);
   }
 
   warn(msg: string, extra?: Record<string, unknown>): void {
-    this._log("warn", msg, extra);
+    this.log("warn", msg, extra);
   }
 
   error(msg: string, extra?: Record<string, unknown>): void {
-    this._log("error", msg, extra);
+    this.log("error", msg, extra);
   }
 }
 
-export const logger = new Logger();
+export function createLogger(log: LogFn): Logger {
+  return new Logger(log);
+}
