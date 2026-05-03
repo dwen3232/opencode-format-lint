@@ -37,25 +37,3 @@ export const LINTER_DEFAULTS: Record<string, ToolDef> = {
   hadolint: hadolint.linter!.def,
   markdownlint: markdownlint.linter!.def,
 };
-
-// name → extensions[] for building the extension-to-tools map
-export const DEFAULT_FORMATTER_EXTENSIONS: Record<string, string[]> = {
-  prettier: prettier.formatter!.extensions,
-  biome: biome.formatter!.extensions,
-  black: black.formatter!.extensions,
-  isort: isort.formatter!.extensions,
-  gofmt: gofmt.formatter!.extensions,
-  rustfmt: rustfmt.formatter!.extensions,
-  stylua: stylua.formatter!.extensions,
-  shfmt: shfmt.formatter!.extensions,
-};
-
-export const DEFAULT_LINTER_EXTENSIONS: Record<string, string[]> = {
-  eslint: eslint.linter!.extensions,
-  biome: biome.linter!.extensions,
-  ruff: ruff.linter!.extensions,
-  "golangci-lint": golangciLint.linter!.extensions,
-  shellcheck: shellcheck.linter!.extensions,
-  hadolint: hadolint.linter!.extensions,
-  markdownlint: markdownlint.linter!.extensions,
-};

@@ -9,7 +9,7 @@
 ## Structure
 
 - Single-package TypeScript plugin. Main entrypoint is `src/index.ts`; package exports only `dist/`.
-- Execution flow is split across `src/index.ts` (OpenCode hooks and session tracking), `src/config.ts` (load/merge `codefmt.json`), `src/processor.ts` (format then lint edited files), `src/runner.ts` (marker lookup, cwd resolution, shell execution), and `src/registry/*.ts` (built-in tool defaults by language).
+- Execution flow is split across `src/index.ts` (OpenCode hooks and session tracking), `src/config.ts` (load/merge `codefmt.json`), `src/processor.ts` (format then lint edited files), `src/runner.ts` (marker lookup, cwd resolution, shell execution), and `src/registry/*.ts` (built-in tool defs by language).
 - If you add or remove a built-in tool, update both its file under `src/registry/` and the aggregate maps in `src/registry/index.ts`.
 
 ## Behavior That Is Easy To Miss
@@ -24,8 +24,9 @@
 
 - Runtime config file name is `codefmt.json`.
 - Load order is project-local `.opencode/codefmt.json`, then user-level `~/.config/opencode/codefmt.json`. The first valid file wins.
-- `formatters_by_ext` and `linters_by_ext` replace the default tool list for that extension entirely.
+- `formatters_by_ext` and `linters_by_ext` are opt-in execution maps. If an extension is absent, nothing runs for it.
 - `formatters` and `linters` merge per-tool overrides on top of built-in defaults.
+- Registry entries only define built-in tool args/markers/env for named tools; they do not enable any extension on their own.
 - Config parsing uses Zod and strips unknown keys.
 
 ## Verification

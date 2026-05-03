@@ -130,6 +130,13 @@ function makePluginInput(client: TestClient, $: BunShell): PluginInput {
   };
 }
 
+function mockProjectConfig(config: Record<string, unknown>): void {
+  vi.spyOn(fs, "existsSync").mockImplementation((filePath) => {
+    return filePath === "/project/.opencode/codefmt.json";
+  });
+  vi.spyOn(fs, "readFileSync").mockReturnValue(JSON.stringify(config));
+}
+
 async function runToolExecuteAfter(
   hooks: Hooks,
   input: Parameters<ToolExecuteAfterHook>[0],
@@ -156,8 +163,11 @@ afterEach(() => {
 });
 
 describe("CodefmtPlugin integration", () => {
-  test("runs default Python tools and injects a lint report", async () => {
-    vi.spyOn(fs, "existsSync").mockReturnValue(false);
+  test("runs configured Python tools and injects a lint report", async () => {
+    mockProjectConfig({
+      formatters_by_ext: { ".py": ["black", "isort"] },
+      linters_by_ext: { ".py": ["ruff"] },
+    });
 
     const calls: ShellCall[] = [];
     const client = makeClient();
@@ -229,7 +239,10 @@ describe("CodefmtPlugin integration", () => {
   });
 
   test("deduplicates tracked files within a session and skips prompt when lint passes", async () => {
-    vi.spyOn(fs, "existsSync").mockReturnValue(false);
+    mockProjectConfig({
+      formatters_by_ext: { ".py": ["black", "isort"] },
+      linters_by_ext: { ".py": ["ruff"] },
+    });
 
     const calls: ShellCall[] = [];
     const client = makeClient();
@@ -265,7 +278,10 @@ describe("CodefmtPlugin integration", () => {
   });
 
   test("tracks apply_patch edits and logs the tracked files", async () => {
-    vi.spyOn(fs, "existsSync").mockReturnValue(false);
+    mockProjectConfig({
+      formatters_by_ext: { ".py": ["black", "isort"] },
+      linters_by_ext: { ".py": ["ruff"] },
+    });
 
     const calls: ShellCall[] = [];
     const client = makeClient();
@@ -276,34 +292,38 @@ describe("CodefmtPlugin integration", () => {
       ),
     );
 
-    await runToolExecuteAfter(plugin, {
-      tool: "apply_patch",
-      args: {
-        patchText: "*** Begin Patch\n*** End Patch",
+    await runToolExecuteAfter(
+      plugin,
+      {
+        tool: "apply_patch",
+        args: {
+          patchText: "*** Begin Patch\n*** End Patch",
+        },
+        sessionID: "session-1",
+        callID: "call-1",
       },
-      sessionID: "session-1",
-      callID: "call-1",
-    }, {
-      title: "",
-      output: "",
-      metadata: {
-        files: [
-          {
-            filePath: "/project/src/new.py",
-            type: "add",
-          },
-          {
-            filePath: "/project/src/original.py",
-            movePath: "/project/src/renamed.py",
-            type: "move",
-          },
-          {
-            filePath: "/project/src/deleted.py",
-            type: "delete",
-          },
-        ],
+      {
+        title: "",
+        output: "",
+        metadata: {
+          files: [
+            {
+              filePath: "/project/src/new.py",
+              type: "add",
+            },
+            {
+              filePath: "/project/src/original.py",
+              movePath: "/project/src/renamed.py",
+              type: "move",
+            },
+            {
+              filePath: "/project/src/deleted.py",
+              type: "delete",
+            },
+          ],
+        },
       },
-    });
+    );
 
     await runEvent(plugin, {
       event: {
@@ -408,7 +428,10 @@ describe("CodefmtPlugin integration", () => {
   });
 
   test("waits for the root session to idle before processing child session edits", async () => {
-    vi.spyOn(fs, "existsSync").mockReturnValue(false);
+    mockProjectConfig({
+      formatters_by_ext: { ".py": ["black", "isort"] },
+      linters_by_ext: { ".py": ["ruff"] },
+    });
 
     const calls: ShellCall[] = [];
     const client = makeClient({
@@ -494,7 +517,10 @@ describe("CodefmtPlugin integration", () => {
   });
 
   test("retries pending files when format or lint processing throws", async () => {
-    vi.spyOn(fs, "existsSync").mockReturnValue(false);
+    mockProjectConfig({
+      formatters_by_ext: { ".py": ["black", "isort"] },
+      linters_by_ext: { ".py": ["ruff"] },
+    });
 
     const calls: ShellCall[] = [];
     let shouldThrow = true;
@@ -545,6 +571,36 @@ describe("CodefmtPlugin integration", () => {
 
     const calls: ShellCall[] = [];
     const client = makeClient(undefined, ["session-1"]);
+    const plugin = await FormatLintPlugin(
+      makePluginInput(
+        client,
+        makeShell(calls, (_cmd, _args) => makeShellOutput(0)),
+      ),
+    );
+
+    await runToolExecuteAfter(plugin, {
+      tool: "write",
+      args: { filePath: "/project/src/main.py" },
+      sessionID: "session-1",
+      callID: "call-1",
+    });
+
+    await runEvent(plugin, {
+      event: {
+        type: "session.idle",
+        properties: { sessionID: "session-1" },
+      },
+    });
+
+    expect(calls).toEqual([]);
+    expect(client.session.prompt).not.toHaveBeenCalled();
+  });
+
+  test("does not run tools for unconfigured extensions", async () => {
+    vi.spyOn(fs, "existsSync").mockReturnValue(false);
+
+    const calls: ShellCall[] = [];
+    const client = makeClient();
     const plugin = await FormatLintPlugin(
       makePluginInput(
         client,

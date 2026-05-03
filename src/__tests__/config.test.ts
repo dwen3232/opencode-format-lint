@@ -13,37 +13,37 @@ afterEach(() => {
 });
 
 describe("buildRuntimeToolMappings", () => {
-  test("builds default formatter and linter mappings", () => {
+  test("returns no formatter or linter mappings when no extensions are configured", () => {
     const { formatterToolsByExtension, linterToolsByExtension } = buildRuntimeToolMappings({});
 
-    expect(formatterToolsByExtension[".ts"][0]?.name).toBe("prettier");
-    expect(formatterToolsByExtension[".py"].map((tool) => tool.name)).toEqual(["black", "isort"]);
-    expect(linterToolsByExtension[".ts"][0]?.name).toBe("eslint");
-    expect(linterToolsByExtension[".py"][0]?.name).toBe("ruff");
+    expect(formatterToolsByExtension).toEqual({});
+    expect(linterToolsByExtension).toEqual({});
   });
 
-  test("user formatters_by_ext fully replaces the default for that extension", () => {
+  test("builds formatter mappings only for explicitly configured extensions", () => {
     const { formatterToolsByExtension } = buildRuntimeToolMappings({
-      formatters_by_ext: { ".ts": ["biome"] },
+      formatters_by_ext: { ".ts": ["prettier"], ".py": ["black", "isort"] },
     });
 
-    expect(formatterToolsByExtension[".ts"].map((tool) => tool.name)).toEqual(["biome"]);
+    expect(formatterToolsByExtension[".ts"].map((tool) => tool.name)).toEqual(["prettier"]);
+    expect(formatterToolsByExtension[".py"].map((tool) => tool.name)).toEqual(["black", "isort"]);
   });
 
-  test("user linters_by_ext fully replaces the default for that extension", () => {
+  test("builds linter mappings only for explicitly configured extensions", () => {
     const { linterToolsByExtension } = buildRuntimeToolMappings({
-      linters_by_ext: { ".ts": ["biome"] },
+      linters_by_ext: { ".ts": ["eslint"], ".py": ["ruff"] },
     });
 
-    expect(linterToolsByExtension[".ts"].map((tool) => tool.name)).toEqual(["biome"]);
+    expect(linterToolsByExtension[".ts"].map((tool) => tool.name)).toEqual(["eslint"]);
+    expect(linterToolsByExtension[".py"].map((tool) => tool.name)).toEqual(["ruff"]);
   });
 
-  test("user config only replaces specified extensions, leaving others intact", () => {
+  test("does not add implicit mappings for extensions omitted from config", () => {
     const { formatterToolsByExtension } = buildRuntimeToolMappings({
       formatters_by_ext: { ".ts": ["biome"] },
     });
 
-    expect(formatterToolsByExtension[".py"].map((tool) => tool.name)).toEqual(["black", "isort"]);
+    expect(formatterToolsByExtension).not.toHaveProperty(".py");
   });
 
   test("user config can add a new extension not in the defaults", () => {
@@ -64,6 +64,7 @@ describe("buildRuntimeToolMappings", () => {
 
   test("resolved tools include merged tool definitions", () => {
     const { formatterToolsByExtension } = buildRuntimeToolMappings({
+      formatters_by_ext: { ".ts": ["prettier"] },
       formatters: {
         prettier: { cmd: "/usr/local/bin/prettier" },
       },

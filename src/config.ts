@@ -2,12 +2,7 @@ import fs from "fs";
 import path from "path";
 
 import { logger } from "./logger";
-import {
-  DEFAULT_FORMATTER_EXTENSIONS,
-  DEFAULT_LINTER_EXTENSIONS,
-  FORMATTER_DEFAULTS,
-  LINTER_DEFAULTS,
-} from "./registry/index";
+import { FORMATTER_DEFAULTS, LINTER_DEFAULTS } from "./registry/index";
 import type { CodefmtConfig, ToolDef } from "./schemas";
 import { CodefmtConfigSchema } from "./schemas";
 import type { ResolvedTool, RuntimeToolMappings } from "./types";
@@ -43,43 +38,18 @@ export function loadConfig(directory: string): CodefmtConfig {
   return {};
 }
 
-function invertToolToExtensionsMap(
-  toolToExtensionsMap: Record<string, string[]>,
-): Record<string, string[]> {
-  const extensionToToolsMap: Record<string, string[]> = {};
-  for (const [toolName, extensions] of Object.entries(toolToExtensionsMap)) {
-    for (const extension of extensions) {
-      if (!extensionToToolsMap[extension]) extensionToToolsMap[extension] = [];
-      extensionToToolsMap[extension].push(toolName);
-    }
-  }
-  return extensionToToolsMap;
-}
-
 /**
  * Builds the runtime execution plan for both formatter and linter execution,
- * applying user per-extension overrides and resolving tool definitions once.
+ * resolving tool definitions only for explicitly configured extensions.
  */
 export function buildRuntimeToolMappings(config: CodefmtConfig): RuntimeToolMappings {
-  const formatterToolNamesByExtension = invertToolToExtensionsMap(DEFAULT_FORMATTER_EXTENSIONS);
-  const linterToolNamesByExtension = invertToolToExtensionsMap(DEFAULT_LINTER_EXTENSIONS);
-
-  //
-  for (const [extension, tools] of Object.entries(config.formatters_by_ext ?? {})) {
-    formatterToolNamesByExtension[extension] = tools;
-  }
-
-  for (const [extension, tools] of Object.entries(config.linters_by_ext ?? {})) {
-    linterToolNamesByExtension[extension] = tools;
-  }
-
   return {
     formatterToolsByExtension: resolveToolsByExtension(
       "formatter",
       config,
-      formatterToolNamesByExtension,
+      config.formatters_by_ext ?? {},
     ),
-    linterToolsByExtension: resolveToolsByExtension("linter", config, linterToolNamesByExtension),
+    linterToolsByExtension: resolveToolsByExtension("linter", config, config.linters_by_ext ?? {}),
   };
 }
 
