@@ -6,6 +6,18 @@ import { logger } from "./logger";
 import { buildLintReport, formatFiles, lintFiles } from "./processor";
 import { shell } from "./shell";
 
+interface ApplyPatchMetadataFile {
+  filePath?: string;
+  movePath?: string;
+  type?: string;
+}
+
+interface ToolExecuteAfterOutput {
+  metadata?: {
+    files?: ApplyPatchMetadataFile[];
+  } | null;
+}
+
 /**
  * OpenCode plugin entrypoint. Tracks edited files during a turn, then formats
  * and lints them once when the parent session becomes idle.
@@ -22,6 +34,32 @@ export const FormatLintPlugin: Plugin = async ({ client, $, directory }) => {
   const config = loadConfig(directory);
   const { formatterToolsByExtension, linterToolsByExtension } = buildRuntimeToolMappings(config);
   const pendingBySession = new Map<string, Set<string>>();
+
+  const getTrackedFiles = (
+    tool: string,
+    args: unknown,
+    output: ToolExecuteAfterOutput,
+  ): string[] => {
+    if (tool === "edit" || tool === "write") {
+      const filePath = (args as { filePath?: string })?.filePath;
+      return filePath ? [filePath] : [];
+    }
+
+    if (tool !== "apply_patch") return [];
+
+    const files = output.metadata?.files;
+    if (!Array.isArray(files)) return [];
+
+    const tracked = new Set<string>();
+    for (const file of files) {
+      if (file.type === "delete") continue;
+
+      const target = file.movePath ?? file.filePath;
+      if (target) tracked.add(target);
+    }
+
+    return [...tracked];
+  };
 
   const getRootSessionID = async (sessionID: string): Promise<string> => {
     let currentID = sessionID;
@@ -42,17 +80,6 @@ export const FormatLintPlugin: Plugin = async ({ client, $, directory }) => {
     }
   };
 
-  const isRootSession = async (sessionID: string): Promise<boolean> => {
-    const result = await client.session.get({ path: { id: sessionID } });
-    const session = result.data;
-
-    if (!session?.id) {
-      throw new Error(`session lookup failed for ${sessionID}`);
-    }
-
-    return !session.parentID;
-  };
-
   const addPendingFiles = (sessionID: string, files: Iterable<string>): void => {
     let pending = pendingBySession.get(sessionID);
     if (!pending) {
@@ -68,13 +95,15 @@ export const FormatLintPlugin: Plugin = async ({ client, $, directory }) => {
   logger.info("plugin loaded");
 
   return {
-    "tool.execute.after": async (input) => {
+    "tool.execute.after": async (input, output) => {
       // possible to mutate a file using bash, but that's too difficult to detect
-      if (input.tool !== "edit" && input.tool !== "write") return;
-
-      // guaranteed to have `filePath` if it's an edit or write tool
-      const filePath = (input.args as { filePath?: string })?.filePath;
-      if (!filePath) return;
+      const filePaths = getTrackedFiles(input.tool, input.args, output);
+      if (input.tool === "apply_patch" && filePaths.length === 0) {
+        logger.warn("apply_patch metadata.files missing; skipping track", {
+          sessionID: input.sessionID,
+        });
+      }
+      if (filePaths.length === 0) return;
 
       // append everything to the root sessionID
       let rootSessionID: string;
@@ -83,18 +112,19 @@ export const FormatLintPlugin: Plugin = async ({ client, $, directory }) => {
       } catch (error) {
         logger.error("failed to resolve root session while tracking file", {
           sessionID: input.sessionID,
-          filePath,
+          filePaths,
           error: String(error),
         });
         return;
       }
 
-      addPendingFiles(rootSessionID, [filePath]);
+      addPendingFiles(rootSessionID, filePaths);
 
-      logger.debug("tracked file", {
+      logger.info("tracked files", {
         rootSessionID,
         sessionID: input.sessionID,
-        filePath,
+        tool: input.tool,
+        filePaths,
       });
     },
 
@@ -107,22 +137,6 @@ export const FormatLintPlugin: Plugin = async ({ client, $, directory }) => {
 
       const { sessionID } = event.properties;
 
-      let rootSession: boolean;
-      try {
-        rootSession = await isRootSession(sessionID);
-      } catch (error) {
-        logger.error("failed to resolve root session for idle event", {
-          sessionID,
-          error: String(error),
-        });
-        return;
-      }
-
-      if (!rootSession) {
-        logger.debug("session.idle suppressed (child session)", { sessionID });
-        return;
-      }
-
       const files = pendingBySession.get(sessionID);
       if (!files || files.size === 0) return;
       pendingBySession.delete(sessionID);
@@ -131,8 +145,8 @@ export const FormatLintPlugin: Plugin = async ({ client, $, directory }) => {
 
       let errors: string[];
       try {
-        await formatFiles(files, formatterToolsByExtension);
-        errors = await lintFiles(files, linterToolsByExtension);
+        await formatFiles(files, formatterToolsByExtension, directory);
+        errors = await lintFiles(files, linterToolsByExtension, directory);
       } catch (error) {
         addPendingFiles(sessionID, files);
         logger.error("format+lint failed", {

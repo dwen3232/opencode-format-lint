@@ -25,7 +25,11 @@ export function findRoot(filePath: string, markers: string[]): string | null {
  * Executes a formatter or linter for a single file and normalizes the result
  * into either `null` or a user-facing error string.
  */
-export async function executeToolDef(filePath: string, tool: ResolvedTool): Promise<string | null> {
+export async function executeToolDef(
+  filePath: string,
+  tool: ResolvedTool,
+  fallbackCwd: string,
+): Promise<string | null> {
   const { name, def } = tool;
   const markers = def.markers ?? [];
   const require_markers = def.require_markers ?? false;
@@ -37,10 +41,10 @@ export async function executeToolDef(filePath: string, tool: ResolvedTool): Prom
   } else if (require_markers) {
     return null;
   } else {
-    cwd = process.cwd();
+    cwd = fallbackCwd;
   }
 
-  const cmd = def.cmd ?? name;
+  const cmd = resolveCommand(def.cmd ?? name, cwd);
   const args = [...(def.args ?? []), filePath];
 
   const $ = shell.get();
@@ -58,4 +62,17 @@ export async function executeToolDef(filePath: string, tool: ResolvedTool): Prom
     }
     return null;
   }
+}
+
+function resolveCommand(command: string, cwd: string): string {
+  if (command.includes(path.sep) || path.isAbsolute(command)) {
+    return command;
+  }
+
+  const localBin = path.join(cwd, "node_modules", ".bin", command);
+  if (fs.existsSync(localBin)) {
+    return localBin;
+  }
+
+  return command;
 }

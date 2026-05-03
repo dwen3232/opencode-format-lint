@@ -19,28 +19,27 @@ const CONFIG_NAME = "codefmt.json";
  * the user-level fallback.
  */
 export function loadConfig(directory: string): CodefmtConfig {
-  const locations = [
-    path.join(directory, ".opencode", CONFIG_NAME),
-    path.join(process.env.HOME ?? "~", ".config", "opencode", CONFIG_NAME),
-  ];
+  const projectConfigPath = path.join(directory, ".opencode", CONFIG_NAME);
+  const userConfigPath = path.join(process.env.HOME ?? "~", ".config", "opencode", CONFIG_NAME);
+
+  const locations = [projectConfigPath, userConfigPath];
   for (const loc of locations) {
     if (fs.existsSync(loc)) {
       try {
         const raw = JSON.parse(fs.readFileSync(loc, "utf8"));
         const result = CodefmtConfigSchema.safeParse(raw);
-        if (!result.success) {
-          logger.error(`Invalid config at ${loc}`, {
-            issues: result.error.issues,
-          });
-          continue;
+        if (result.success) {
+          return result.data;
         }
-        return result.data;
+        logger.warn(`Invalid config at ${loc}`, {
+          issues: result.error.issues,
+        });
       } catch {
-        logger.error(`Failed to parse config at ${loc}`);
+        logger.warn(`Failed to parse config at ${loc}`);
       }
     }
   }
-  // TODO: should we just create an empty config if it doesn't exist?
+  // TODO: add a default config object that we write to the userConfigPath if it doesn't exist, then return it
   return {};
 }
 
@@ -65,6 +64,7 @@ export function buildRuntimeToolMappings(config: CodefmtConfig): RuntimeToolMapp
   const formatterToolNamesByExtension = invertToolToExtensionsMap(DEFAULT_FORMATTER_EXTENSIONS);
   const linterToolNamesByExtension = invertToolToExtensionsMap(DEFAULT_LINTER_EXTENSIONS);
 
+  //
   for (const [extension, tools] of Object.entries(config.formatters_by_ext ?? {})) {
     formatterToolNamesByExtension[extension] = tools;
   }
@@ -75,16 +75,16 @@ export function buildRuntimeToolMappings(config: CodefmtConfig): RuntimeToolMapp
 
   return {
     formatterToolsByExtension: resolveToolsByExtension(
-      "formatters",
+      "formatter",
       config,
       formatterToolNamesByExtension,
     ),
-    linterToolsByExtension: resolveToolsByExtension("linters", config, linterToolNamesByExtension),
+    linterToolsByExtension: resolveToolsByExtension("linter", config, linterToolNamesByExtension),
   };
 }
 
 function resolveToolsByExtension(
-  kind: "formatters" | "linters",
+  kind: "formatter" | "linter",
   config: CodefmtConfig,
   extensionToToolNamesMap: Record<string, string[]>,
 ): Record<string, ResolvedTool[]> {
@@ -93,7 +93,7 @@ function resolveToolsByExtension(
   for (const [extension, toolNames] of Object.entries(extensionToToolNamesMap)) {
     toolsByExtension[extension] = toolNames.map((name) => ({
       name,
-      kind: kind === "formatters" ? "formatter" : "linter",
+      kind,
       def: resolveToolDef(name, kind, config),
     }));
   }
@@ -107,12 +107,12 @@ function resolveToolsByExtension(
  */
 export function resolveToolDef(
   name: string,
-  kind: "formatters" | "linters",
+  kind: "formatter" | "linter",
   config: CodefmtConfig,
 ): ToolDef {
-  const defaults = kind === "formatters" ? FORMATTER_DEFAULTS : LINTER_DEFAULTS;
+  const defaults = kind === "formatter" ? FORMATTER_DEFAULTS : LINTER_DEFAULTS;
   const base: ToolDef = defaults[name] ?? {};
   const override: ToolDef =
-    (kind === "formatters" ? config.formatters : config.linters)?.[name] ?? {};
+    (kind === "formatter" ? config.formatters : config.linters)?.[name] ?? {};
   return { ...base, ...override };
 }

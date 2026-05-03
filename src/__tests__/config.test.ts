@@ -79,7 +79,7 @@ describe("buildRuntimeToolMappings", () => {
 
 describe("resolveToolDef", () => {
   test("returns registry defaults when no user override exists", () => {
-    const result = resolveToolDef("prettier", "formatters", {});
+    const result = resolveToolDef("prettier", "formatter", {});
     expect(result).toEqual(FORMATTER_DEFAULTS.prettier);
   });
 
@@ -90,7 +90,7 @@ describe("resolveToolDef", () => {
       },
     };
 
-    const result = resolveToolDef("prettier", "formatters", config);
+    const result = resolveToolDef("prettier", "formatter", config);
 
     expect(result.args).toEqual(["--write", "--single-quote"]);
     expect(result.markers).toEqual(FORMATTER_DEFAULTS.prettier!.markers);
@@ -103,7 +103,7 @@ describe("resolveToolDef", () => {
       },
     };
 
-    const result = resolveToolDef("ruff", "linters", config);
+    const result = resolveToolDef("ruff", "linter", config);
 
     expect(result.require_markers).toBe(true);
     expect(result.args).toEqual(LINTER_DEFAULTS.ruff!.args);
@@ -116,13 +116,13 @@ describe("resolveToolDef", () => {
       },
     };
 
-    const result = resolveToolDef("prettier", "formatters", config);
+    const result = resolveToolDef("prettier", "formatter", config);
 
     expect(result.cmd).toBe("/usr/local/bin/prettier");
   });
 
   test("returns an empty object for an unknown tool with no override", () => {
-    const result = resolveToolDef("unknown-tool", "formatters", {});
+    const result = resolveToolDef("unknown-tool", "formatter", {});
     expect(result).toEqual({});
   });
 
@@ -133,7 +133,7 @@ describe("resolveToolDef", () => {
       },
     };
 
-    const result = resolveToolDef("my-formatter", "formatters", config);
+    const result = resolveToolDef("my-formatter", "formatter", config);
 
     expect(result).toEqual({ cmd: "my-fmt", args: ["--fix"] });
   });
@@ -199,7 +199,7 @@ describe("loadConfig", () => {
       }
       return JSON.stringify({ formatters_by_ext: { ".ts": ["prettier"] } });
     });
-    const errorSpy = vi.spyOn(logger, "error").mockImplementation(() => {});
+    const errorSpy = vi.spyOn(logger, "warn").mockImplementation(() => {});
 
     const result = loadConfig("/some/project");
 
@@ -213,7 +213,7 @@ describe("loadConfig", () => {
   test("returns empty object when config file contains invalid JSON", () => {
     vi.spyOn(fs, "existsSync").mockReturnValue(true);
     vi.spyOn(fs, "readFileSync").mockReturnValue("{ not valid json }");
-    const errorSpy = vi.spyOn(logger, "error").mockImplementation(() => {});
+    const errorSpy = vi.spyOn(logger, "warn").mockImplementation(() => {});
 
     const result = loadConfig("/some/project");
 

@@ -133,15 +133,16 @@ function makePluginInput(client: TestClient, $: BunShell): PluginInput {
 async function runToolExecuteAfter(
   hooks: Hooks,
   input: Parameters<ToolExecuteAfterHook>[0],
+  output: Parameters<ToolExecuteAfterHook>[1] = {
+    title: "",
+    output: "",
+    metadata: null,
+  },
 ): Promise<void> {
   const handler = hooks["tool.execute.after"];
   if (!handler) throw new Error("tool.execute.after hook not registered");
 
-  await handler(input, {
-    title: "",
-    output: "",
-    metadata: null,
-  });
+  await handler(input, output);
 }
 
 async function runEvent(hooks: Hooks, input: Parameters<EventHook>[0]): Promise<void> {
@@ -197,19 +198,19 @@ describe("CodefmtPlugin integration", () => {
       {
         cmd: "black",
         args: ["/project/src/main.py"],
-        cwd: process.cwd(),
+        cwd: "/project",
         env: undefined,
       },
       {
         cmd: "isort",
         args: ["/project/src/main.py"],
-        cwd: process.cwd(),
+        cwd: "/project",
         env: undefined,
       },
       {
         cmd: "ruff",
         args: ["check", "--output-format", "json", "/project/src/main.py"],
-        cwd: process.cwd(),
+        cwd: "/project",
         env: undefined,
       },
     ]);
@@ -263,6 +264,149 @@ describe("CodefmtPlugin integration", () => {
     expect(client.session.prompt).not.toHaveBeenCalled();
   });
 
+  test("tracks apply_patch edits and logs the tracked files", async () => {
+    vi.spyOn(fs, "existsSync").mockReturnValue(false);
+
+    const calls: ShellCall[] = [];
+    const client = makeClient();
+    const plugin = await FormatLintPlugin(
+      makePluginInput(
+        client,
+        makeShell(calls, (_cmd, _args) => makeShellOutput(0)),
+      ),
+    );
+
+    await runToolExecuteAfter(plugin, {
+      tool: "apply_patch",
+      args: {
+        patchText: "*** Begin Patch\n*** End Patch",
+      },
+      sessionID: "session-1",
+      callID: "call-1",
+    }, {
+      title: "",
+      output: "",
+      metadata: {
+        files: [
+          {
+            filePath: "/project/src/new.py",
+            type: "add",
+          },
+          {
+            filePath: "/project/src/original.py",
+            movePath: "/project/src/renamed.py",
+            type: "move",
+          },
+          {
+            filePath: "/project/src/deleted.py",
+            type: "delete",
+          },
+        ],
+      },
+    });
+
+    await runEvent(plugin, {
+      event: {
+        type: "session.idle",
+        properties: { sessionID: "session-1" },
+      },
+    });
+
+    expect(calls).toEqual([
+      {
+        cmd: "black",
+        args: ["/project/src/new.py"],
+        cwd: "/project",
+        env: undefined,
+      },
+      {
+        cmd: "isort",
+        args: ["/project/src/new.py"],
+        cwd: "/project",
+        env: undefined,
+      },
+      {
+        cmd: "black",
+        args: ["/project/src/renamed.py"],
+        cwd: "/project",
+        env: undefined,
+      },
+      {
+        cmd: "isort",
+        args: ["/project/src/renamed.py"],
+        cwd: "/project",
+        env: undefined,
+      },
+      {
+        cmd: "ruff",
+        args: ["check", "--output-format", "json", "/project/src/new.py"],
+        cwd: "/project",
+        env: undefined,
+      },
+      {
+        cmd: "ruff",
+        args: ["check", "--output-format", "json", "/project/src/renamed.py"],
+        cwd: "/project",
+        env: undefined,
+      },
+    ]);
+
+    expect(client.app.log).toHaveBeenCalledWith({
+      body: {
+        service: "opencode-format-lint",
+        level: "info",
+        message: "tracked files",
+        extra: {
+          rootSessionID: "session-1",
+          sessionID: "session-1",
+          tool: "apply_patch",
+          filePaths: ["/project/src/new.py", "/project/src/renamed.py"],
+        },
+      },
+    });
+  });
+
+  test("skips apply_patch edits when metadata.files is missing", async () => {
+    vi.spyOn(fs, "existsSync").mockReturnValue(false);
+
+    const calls: ShellCall[] = [];
+    const client = makeClient();
+    const plugin = await FormatLintPlugin(
+      makePluginInput(
+        client,
+        makeShell(calls, (_cmd, _args) => makeShellOutput(0)),
+      ),
+    );
+
+    await runToolExecuteAfter(plugin, {
+      tool: "apply_patch",
+      args: {
+        patchText: "*** Begin Patch\n*** End Patch",
+      },
+      sessionID: "session-1",
+      callID: "call-1",
+    });
+
+    await runEvent(plugin, {
+      event: {
+        type: "session.idle",
+        properties: { sessionID: "session-1" },
+      },
+    });
+
+    expect(calls).toEqual([]);
+    expect(client.app.log).toHaveBeenCalledWith({
+      body: {
+        service: "opencode-format-lint",
+        level: "warn",
+        message: "apply_patch metadata.files missing; skipping track",
+        extra: {
+          sessionID: "session-1",
+        },
+      },
+    });
+  });
+
   test("waits for the root session to idle before processing child session edits", async () => {
     vi.spyOn(fs, "existsSync").mockReturnValue(false);
 
@@ -312,37 +456,37 @@ describe("CodefmtPlugin integration", () => {
       {
         cmd: "black",
         args: ["/project/src/child.py"],
-        cwd: process.cwd(),
+        cwd: "/project",
         env: undefined,
       },
       {
         cmd: "isort",
         args: ["/project/src/child.py"],
-        cwd: process.cwd(),
+        cwd: "/project",
         env: undefined,
       },
       {
         cmd: "black",
         args: ["/project/src/root.py"],
-        cwd: process.cwd(),
+        cwd: "/project",
         env: undefined,
       },
       {
         cmd: "isort",
         args: ["/project/src/root.py"],
-        cwd: process.cwd(),
+        cwd: "/project",
         env: undefined,
       },
       {
         cmd: "ruff",
         args: ["check", "--output-format", "json", "/project/src/child.py"],
-        cwd: process.cwd(),
+        cwd: "/project",
         env: undefined,
       },
       {
         cmd: "ruff",
         args: ["check", "--output-format", "json", "/project/src/root.py"],
-        cwd: process.cwd(),
+        cwd: "/project",
         env: undefined,
       },
     ]);

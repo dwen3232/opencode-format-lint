@@ -109,15 +109,19 @@ describe("runTool", () => {
   test("returns null when require_markers is true and no marker is found", async () => {
     vi.spyOn(fs, "existsSync").mockReturnValue(false);
 
-    const result = await executeToolDef("/project/src/file.ts", {
-      name: "eslint",
-      kind: "linter",
-      def: {
-        args: ["--format", "json"],
-        markers: ["eslint.config.js"],
-        require_markers: true,
+    const result = await executeToolDef(
+      "/project/src/file.ts",
+      {
+        name: "eslint",
+        kind: "linter",
+        def: {
+          args: ["--format", "json"],
+          markers: ["eslint.config.js"],
+          require_markers: true,
+        },
       },
-    });
+      "/project",
+    );
 
     expect(result).toBeNull();
   });
@@ -126,15 +130,19 @@ describe("runTool", () => {
     vi.spyOn(fs, "existsSync").mockReturnValue(false);
     shell.setBackend(makeShell(makeShellOutput(0)) as any);
 
-    const result = await executeToolDef("/project/src/file.ts", {
-      name: "prettier",
-      kind: "formatter",
-      def: {
-        args: ["--write"],
-        markers: [],
-        require_markers: false,
+    const result = await executeToolDef(
+      "/project/src/file.ts",
+      {
+        name: "prettier",
+        kind: "formatter",
+        def: {
+          args: ["--write"],
+          markers: [],
+          require_markers: false,
+        },
       },
-    });
+      "/project",
+    );
 
     expect(result).toBeNull();
   });
@@ -143,15 +151,19 @@ describe("runTool", () => {
     vi.spyOn(fs, "existsSync").mockReturnValue(false);
     shell.setBackend(makeShell(makeShellOutput(1, "", "")) as any);
 
-    const result = await executeToolDef("/project/src/file.ts", {
-      name: "prettier",
-      kind: "formatter",
-      def: {
-        args: ["--write"],
-        markers: [],
-        require_markers: false,
+    const result = await executeToolDef(
+      "/project/src/file.ts",
+      {
+        name: "prettier",
+        kind: "formatter",
+        def: {
+          args: ["--write"],
+          markers: [],
+          require_markers: false,
+        },
       },
-    });
+      "/project",
+    );
 
     expect(result).toBeNull();
   });
@@ -160,15 +172,19 @@ describe("runTool", () => {
     vi.spyOn(fs, "existsSync").mockReturnValue(false);
     shell.setBackend(makeShell(makeShellOutput(1, "", "SyntaxError: unexpected token")) as any);
 
-    const result = await executeToolDef("/project/src/file.ts", {
-      name: "prettier",
-      kind: "formatter",
-      def: {
-        args: ["--write"],
-        markers: [],
-        require_markers: false,
+    const result = await executeToolDef(
+      "/project/src/file.ts",
+      {
+        name: "prettier",
+        kind: "formatter",
+        def: {
+          args: ["--write"],
+          markers: [],
+          require_markers: false,
+        },
       },
-    });
+      "/project",
+    );
 
     expect(result).toBe("[prettier] SyntaxError: unexpected token");
   });
@@ -177,32 +193,69 @@ describe("runTool", () => {
     vi.spyOn(fs, "existsSync").mockReturnValue(false);
     shell.setBackend(makeShell(makeShellOutput(0)) as any);
 
-    const result = await executeToolDef("/project/src/file.ts", {
-      name: "ruff",
-      kind: "linter",
-      def: {
-        args: ["check", "--output-format", "json"],
-        markers: [],
-        require_markers: false,
+    const result = await executeToolDef(
+      "/project/src/file.ts",
+      {
+        name: "ruff",
+        kind: "linter",
+        def: {
+          args: ["check", "--output-format", "json"],
+          markers: [],
+          require_markers: false,
+        },
       },
-    });
+      "/project",
+    );
 
     expect(result).toBeNull();
+  });
+
+  test("prefers a local node_modules binary when present", async () => {
+    vi.spyOn(fs, "existsSync").mockImplementation((p) => {
+      return p === path.join("/project", "node_modules", ".bin", "eslint");
+    });
+
+    const shellBackend = makeShell(makeShellOutput(0));
+    shell.setBackend(shellBackend as any);
+
+    await executeToolDef(
+      "/project/src/file.ts",
+      {
+        name: "eslint",
+        kind: "linter",
+        def: {
+          args: ["--format", "json"],
+          markers: [],
+          require_markers: false,
+        },
+      },
+      "/project",
+    );
+
+    expect(shellBackend).toHaveBeenCalledWith(
+      expect.anything(),
+      path.join("/project", "node_modules", ".bin", "eslint"),
+      ["--format", "json", "/project/src/file.ts"],
+    );
   });
 
   test("returns stdout when linter exits non-zero with stdout output", async () => {
     vi.spyOn(fs, "existsSync").mockReturnValue(false);
     shell.setBackend(makeShell(makeShellOutput(1, '[{"code": "E501"}]', "")) as any);
 
-    const result = await executeToolDef("/project/src/file.ts", {
-      name: "ruff",
-      kind: "linter",
-      def: {
-        args: ["check", "--output-format", "json"],
-        markers: [],
-        require_markers: false,
+    const result = await executeToolDef(
+      "/project/src/file.ts",
+      {
+        name: "ruff",
+        kind: "linter",
+        def: {
+          args: ["check", "--output-format", "json"],
+          markers: [],
+          require_markers: false,
+        },
       },
-    });
+      "/project",
+    );
 
     expect(result).toBe('[ruff] [{"code": "E501"}]');
   });
@@ -211,15 +264,19 @@ describe("runTool", () => {
     vi.spyOn(fs, "existsSync").mockReturnValue(false);
     shell.setBackend(makeShell(makeShellOutput(1, "", "")) as any);
 
-    const result = await executeToolDef("/project/src/file.ts", {
-      name: "ruff",
-      kind: "linter",
-      def: {
-        args: ["check"],
-        markers: [],
-        require_markers: false,
+    const result = await executeToolDef(
+      "/project/src/file.ts",
+      {
+        name: "ruff",
+        kind: "linter",
+        def: {
+          args: ["check"],
+          markers: [],
+          require_markers: false,
+        },
       },
-    });
+      "/project",
+    );
 
     expect(result).toBe("[ruff] exit code 1");
   });

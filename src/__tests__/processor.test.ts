@@ -20,13 +20,13 @@ describe("formatFiles", () => {
 
     await formatFiles(["/project/src/button.ts"], {
       ".ts": [{ name: "prettier", kind: "formatter", def: {} }],
-    });
+    }, "/project");
 
     expect(mockedExecuteToolDef).toHaveBeenCalledWith("/project/src/button.ts", {
       name: "prettier",
       kind: "formatter",
       def: {},
-    });
+    }, "/project");
   });
 
   test("runs multiple formatters for the same extension in order", async () => {
@@ -41,7 +41,7 @@ describe("formatFiles", () => {
         { name: "isort", kind: "formatter", def: {} },
         { name: "black", kind: "formatter", def: {} },
       ],
-    });
+    }, "/project");
 
     expect(calls).toEqual(["isort", "black"]);
   });
@@ -51,7 +51,7 @@ describe("formatFiles", () => {
 
     await formatFiles(["/project/src/main.go"], {
       ".ts": [{ name: "prettier", kind: "formatter", def: {} }],
-    });
+    }, "/project");
 
     expect(mockedExecuteToolDef).not.toHaveBeenCalled();
   });
@@ -61,7 +61,7 @@ describe("formatFiles", () => {
 
     await formatFiles(["/project/a.ts", "/project/b.ts"], {
       ".ts": [{ name: "prettier", kind: "formatter", def: {} }],
-    });
+    }, "/project");
 
     expect(mockedExecuteToolDef).toHaveBeenCalledTimes(2);
   });
@@ -73,7 +73,7 @@ describe("formatFiles", () => {
 
     await formatFiles(["/project/src/button.ts"], {
       ".ts": [{ name: "prettier", kind: "formatter", def: {} }],
-    });
+    }, "/project");
 
     expect(warnSpy).toHaveBeenCalledWith(
       "formatter error",
@@ -89,13 +89,13 @@ describe("formatFiles", () => {
 
     await formatFiles(["/project/Dockerfile"], {
       Dockerfile: [{ name: "hadolint-fmt", kind: "formatter", def: {} }],
-    });
+    }, "/project");
 
     expect(mockedExecuteToolDef).toHaveBeenCalledWith("/project/Dockerfile", {
       name: "hadolint-fmt",
       kind: "formatter",
       def: {},
-    });
+    }, "/project");
   });
 });
 
@@ -105,7 +105,7 @@ describe("lintFiles", () => {
 
     const errors = await lintFiles(["/project/src/button.ts"], {
       ".ts": [{ name: "eslint", kind: "linter", def: {} }],
-    });
+    }, "/project");
 
     expect(errors).toEqual([]);
   });
@@ -115,7 +115,7 @@ describe("lintFiles", () => {
 
     const errors = await lintFiles(["/project/src/button.ts"], {
       ".ts": [{ name: "eslint", kind: "linter", def: {} }],
-    });
+    }, "/project");
 
     expect(errors).toEqual(["**/project/src/button.ts**\n[eslint] no-unused-vars"]);
   });
@@ -125,7 +125,7 @@ describe("lintFiles", () => {
 
     const errors = await lintFiles(["/project/a.ts", "/project/b.ts"], {
       ".ts": [{ name: "eslint", kind: "linter", def: {} }],
-    });
+    }, "/project");
 
     expect(errors).toHaveLength(2);
   });
@@ -135,7 +135,7 @@ describe("lintFiles", () => {
 
     const errors = await lintFiles(["/project/src/main.go"], {
       ".ts": [{ name: "eslint", kind: "linter", def: {} }],
-    });
+    }, "/project");
 
     expect(errors).toEqual([]);
     expect(mockedExecuteToolDef).not.toHaveBeenCalled();
@@ -151,7 +151,7 @@ describe("lintFiles", () => {
         { name: "eslint", kind: "linter", def: {} },
         { name: "biome", kind: "linter", def: {} },
       ],
-    });
+    }, "/project");
 
     expect(errors).toHaveLength(2);
   });
@@ -164,7 +164,7 @@ describe("lintFiles", () => {
         { name: "eslint", kind: "linter", def: {} },
         { name: "biome", kind: "linter", def: {} },
       ],
-    });
+    }, "/project");
 
     expect(errors).toHaveLength(1);
     expect(errors[0]).toContain("[biome] error");
