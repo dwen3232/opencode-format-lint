@@ -58,8 +58,10 @@ export function createLoadConfig(logger: LoggerLike) {
     const userConfigPath = path.join(process.env.HOME ?? "~", ".config", "opencode", CONFIG_NAME);
 
     const locations = [projectConfigPath, userConfigPath];
+    let foundExistingConfig = false;
     for (const loc of locations) {
       if (fs.existsSync(loc)) {
+        foundExistingConfig = true;
         try {
           const raw = JSON.parse(fs.readFileSync(loc, "utf8"));
           const result = CodefmtConfigSchema.safeParse(raw);
@@ -73,6 +75,10 @@ export function createLoadConfig(logger: LoggerLike) {
           logger.warn(`Failed to parse config at ${loc}`);
         }
       }
+    }
+
+    if (foundExistingConfig) {
+      return {};
     }
 
     return writeDefaultConfig(logger, userConfigPath);

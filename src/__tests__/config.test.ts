@@ -277,6 +277,8 @@ describe("loadConfig", () => {
   test("returns empty object when config file contains invalid JSON", () => {
     vi.spyOn(fs, "existsSync").mockReturnValue(true);
     vi.spyOn(fs, "readFileSync").mockReturnValue("{ not valid json }");
+    const mkdirSync = vi.spyOn(fs, "mkdirSync").mockImplementation(() => undefined);
+    const writeFileSync = vi.spyOn(fs, "writeFileSync").mockImplementation(() => undefined);
     const { logger, loadConfig } = makeLoadConfig();
 
     const result = loadConfig("/some/project");
@@ -285,6 +287,28 @@ describe("loadConfig", () => {
       expect.stringContaining("/some/project/.opencode/codefmt.json"),
     );
     expect(result).toEqual({});
+    expect(mkdirSync).not.toHaveBeenCalled();
+    expect(writeFileSync).not.toHaveBeenCalled();
+  });
+
+  test("does not overwrite an invalid existing user config", () => {
+    const home = process.env.HOME ?? "~";
+    vi.spyOn(fs, "existsSync").mockImplementation(
+      (p) => p === `${home}/.config/opencode/codefmt.json`,
+    );
+    vi.spyOn(fs, "readFileSync").mockReturnValue("{ not valid json }");
+    const mkdirSync = vi.spyOn(fs, "mkdirSync").mockImplementation(() => undefined);
+    const writeFileSync = vi.spyOn(fs, "writeFileSync").mockImplementation(() => undefined);
+    const { logger, loadConfig } = makeLoadConfig();
+
+    const result = loadConfig("/some/project");
+
+    expect(logger.warn).toHaveBeenCalledWith(
+      expect.stringContaining(`${home}/.config/opencode/codefmt.json`),
+    );
+    expect(result).toEqual({});
+    expect(mkdirSync).not.toHaveBeenCalled();
+    expect(writeFileSync).not.toHaveBeenCalled();
   });
 
   test("does not write a default config when project config exists", () => {
