@@ -156,11 +156,57 @@ describe("resolveToolDef", () => {
 describe("loadConfig", () => {
   test("returns empty object when no config file exists", () => {
     vi.spyOn(fs, "existsSync").mockReturnValue(false);
+    vi.spyOn(fs, "readFileSync").mockImplementation((p) => {
+      if (String(p).endsWith("/package.json")) {
+        return JSON.stringify({
+          name: "opencode-format-lint",
+          version: "0.1.0",
+        });
+      }
+
+      throw new Error(`Unexpected read for ${String(p)}`);
+    });
+    vi.spyOn(fs, "mkdirSync").mockImplementation(() => undefined);
+    vi.spyOn(fs, "writeFileSync").mockImplementation(() => undefined);
     const { loadConfig } = makeLoadConfig();
 
     const result = loadConfig("/some/project");
 
     expect(result).toEqual({});
+  });
+
+  test("writes a default user config with a pinned schema URL when no config exists", () => {
+    vi.spyOn(fs, "existsSync").mockReturnValue(false);
+    vi.spyOn(fs, "readFileSync").mockImplementation((p) => {
+      if (String(p).endsWith("/package.json")) {
+        return JSON.stringify({
+          name: "opencode-format-lint",
+          version: "0.1.0",
+        });
+      }
+
+      throw new Error(`Unexpected read for ${String(p)}`);
+    });
+    const mkdirSync = vi.spyOn(fs, "mkdirSync").mockImplementation(() => undefined);
+    const writeFileSync = vi.spyOn(fs, "writeFileSync").mockImplementation(() => undefined);
+    const { loadConfig } = makeLoadConfig();
+
+    const result = loadConfig("/some/project");
+
+    expect(result).toEqual({});
+    expect(mkdirSync).toHaveBeenCalledWith(`${process.env.HOME ?? "~"}/.config/opencode`, {
+      recursive: true,
+    });
+    expect(writeFileSync).toHaveBeenCalledWith(
+      `${process.env.HOME ?? "~"}/.config/opencode/codefmt.json`,
+      `${JSON.stringify(
+        {
+          $schema: "https://unpkg.com/opencode-format-lint@0.1.0/codefmt.schema.json",
+        },
+        null,
+        2,
+      )}\n`,
+    );
   });
 
   test("returns parsed config when project-level config is valid", () => {
@@ -231,6 +277,8 @@ describe("loadConfig", () => {
   test("returns empty object when config file contains invalid JSON", () => {
     vi.spyOn(fs, "existsSync").mockReturnValue(true);
     vi.spyOn(fs, "readFileSync").mockReturnValue("{ not valid json }");
+    const mkdirSync = vi.spyOn(fs, "mkdirSync").mockImplementation(() => undefined);
+    const writeFileSync = vi.spyOn(fs, "writeFileSync").mockImplementation(() => undefined);
     const { logger, loadConfig } = makeLoadConfig();
 
     const result = loadConfig("/some/project");
@@ -239,5 +287,71 @@ describe("loadConfig", () => {
       expect.stringContaining("/some/project/.opencode/codefmt.json"),
     );
     expect(result).toEqual({});
+    expect(mkdirSync).not.toHaveBeenCalled();
+    expect(writeFileSync).not.toHaveBeenCalled();
+  });
+
+  test("does not overwrite an invalid existing user config", () => {
+    const home = process.env.HOME ?? "~";
+    vi.spyOn(fs, "existsSync").mockImplementation(
+      (p) => p === `${home}/.config/opencode/codefmt.json`,
+    );
+    vi.spyOn(fs, "readFileSync").mockReturnValue("{ not valid json }");
+    const mkdirSync = vi.spyOn(fs, "mkdirSync").mockImplementation(() => undefined);
+    const writeFileSync = vi.spyOn(fs, "writeFileSync").mockImplementation(() => undefined);
+    const { logger, loadConfig } = makeLoadConfig();
+
+    const result = loadConfig("/some/project");
+
+    expect(logger.warn).toHaveBeenCalledWith(
+      expect.stringContaining(`${home}/.config/opencode/codefmt.json`),
+    );
+    expect(result).toEqual({});
+    expect(mkdirSync).not.toHaveBeenCalled();
+    expect(writeFileSync).not.toHaveBeenCalled();
+  });
+
+  test("does not write a default config when project config exists", () => {
+    vi.spyOn(fs, "existsSync").mockImplementation(
+      (p) => p === "/some/project/.opencode/codefmt.json",
+    );
+    vi.spyOn(fs, "readFileSync").mockReturnValue(
+      JSON.stringify({ formatters_by_ext: { ".ts": ["biome"] } }),
+    );
+    const mkdirSync = vi.spyOn(fs, "mkdirSync").mockImplementation(() => undefined);
+    const writeFileSync = vi.spyOn(fs, "writeFileSync").mockImplementation(() => undefined);
+    const { loadConfig } = makeLoadConfig();
+
+    const result = loadConfig("/some/project");
+
+    expect(result).toEqual({ formatters_by_ext: { ".ts": ["biome"] } });
+    expect(mkdirSync).not.toHaveBeenCalled();
+    expect(writeFileSync).not.toHaveBeenCalled();
+  });
+
+  test("logs a warning and returns empty object when writing the default config fails", () => {
+    vi.spyOn(fs, "existsSync").mockReturnValue(false);
+    vi.spyOn(fs, "readFileSync").mockImplementation((p) => {
+      if (String(p).endsWith("/package.json")) {
+        return JSON.stringify({
+          name: "opencode-format-lint",
+          version: "0.1.0",
+        });
+      }
+
+      throw new Error(`Unexpected read for ${String(p)}`);
+    });
+    vi.spyOn(fs, "mkdirSync").mockImplementation(() => {
+      throw new Error("disk full");
+    });
+    const { logger, loadConfig } = makeLoadConfig();
+
+    const result = loadConfig("/some/project");
+
+    expect(result).toEqual({});
+    expect(logger.warn).toHaveBeenCalledWith(
+      expect.stringContaining(`${process.env.HOME ?? "~"}/.config/opencode/codefmt.json`),
+      expect.objectContaining({ error: expect.stringContaining("disk full") }),
+    );
   });
 });

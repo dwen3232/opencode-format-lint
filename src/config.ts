@@ -1,5 +1,6 @@
-import fs from "fs";
-import path from "path";
+import fs from "node:fs";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
 
 import type { LoggerLike } from "./logger";
 import { FORMATTER_DEFAULTS, LINTER_DEFAULTS } from "./registry/index";
@@ -8,6 +9,44 @@ import { CodefmtConfigSchema } from "./schemas";
 import type { ResolvedTool, RuntimeToolMappings } from "./types";
 
 const CONFIG_NAME = "codefmt.json";
+
+interface PackageMetadata {
+  name: string;
+  version: string;
+}
+
+function readPackageMetadata(): PackageMetadata {
+  const packagePath = fileURLToPath(new URL("../package.json", import.meta.url));
+  const raw = JSON.parse(fs.readFileSync(packagePath, "utf8")) as Partial<PackageMetadata>;
+
+  if (typeof raw.name !== "string" || typeof raw.version !== "string") {
+    throw new Error(`Invalid package metadata at ${packagePath}`);
+  }
+
+  return { name: raw.name, version: raw.version };
+}
+
+function buildSchemaURL({ name, version }: PackageMetadata): string {
+  return `https://unpkg.com/${name}@${version}/codefmt.schema.json`;
+}
+
+function writeDefaultConfig(logger: LoggerLike, userConfigPath: string): CodefmtConfig {
+  try {
+    const defaultConfig = {
+      $schema: buildSchemaURL(readPackageMetadata()),
+    };
+
+    fs.mkdirSync(path.dirname(userConfigPath), { recursive: true });
+    fs.writeFileSync(userConfigPath, `${JSON.stringify(defaultConfig, null, 2)}\n`);
+
+    return CodefmtConfigSchema.parse(defaultConfig);
+  } catch (error) {
+    logger.warn(`Failed to write default config at ${userConfigPath}`, {
+      error: String(error),
+    });
+    return {};
+  }
+}
 
 /**
  * Loads the first valid codefmt config, preferring project-local config over
@@ -19,8 +58,10 @@ export function createLoadConfig(logger: LoggerLike) {
     const userConfigPath = path.join(process.env.HOME ?? "~", ".config", "opencode", CONFIG_NAME);
 
     const locations = [projectConfigPath, userConfigPath];
+    let foundExistingConfig = false;
     for (const loc of locations) {
       if (fs.existsSync(loc)) {
+        foundExistingConfig = true;
         try {
           const raw = JSON.parse(fs.readFileSync(loc, "utf8"));
           const result = CodefmtConfigSchema.safeParse(raw);
@@ -36,8 +77,11 @@ export function createLoadConfig(logger: LoggerLike) {
       }
     }
 
-    // TODO: add a default config object that we write to the userConfigPath if it doesn't exist, then return it
-    return {};
+    if (foundExistingConfig) {
+      return {};
+    }
+
+    return writeDefaultConfig(logger, userConfigPath);
   };
 }
 

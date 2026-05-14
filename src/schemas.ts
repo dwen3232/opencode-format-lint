@@ -55,5 +55,9 @@ export const CodefmtConfigSchema = z.object({
     .describe("Per-linter overrides merged on top of built-in defaults. Keys are linter names."),
 });
 
+export const CodefmtConfigJsonSchema = z.toJSONSchema(CodefmtConfigSchema, {
+  target: "draft-07",
+});
+
 export type ToolDef = z.infer<typeof ToolDefSchema>;
 export type CodefmtConfig = z.infer<typeof CodefmtConfigSchema>;
