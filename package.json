@@ -19,13 +19,14 @@
     ".": {
       "import": "./dist/index.js",
       "types": "./dist/index.d.ts"
-    }
+    },
+    "./codefmt.schema.json": "./dist/codefmt.schema.json"
   },
   "files": [
     "dist"
   ],
   "scripts": {
-    "build": "bun build src/index.ts --outdir dist --target bun",
+    "build": "bun build src/index.ts --outdir dist --target bun && bun run scripts/generate-json-schema.ts",
     "changeset": "changeset",
     "format": "bunx prettier . --write",
     "format:check": "bunx prettier . --check",
