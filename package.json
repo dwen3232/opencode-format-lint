@@ -1,6 +1,6 @@
 {
   "name": "opencode-format-lint",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "OpenCode plugin that auto-formats and lints files after each agent turn",
   "type": "module",
   "packageManager": "bun@1.3.5",
