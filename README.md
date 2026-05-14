@@ -67,6 +67,7 @@ Create a project config at `.opencode/codefmt.json`:
 
 ```json
 {
+  "$schema": "https://unpkg.com/opencode-format-lint@<version>/codefmt.schema.json",
   "formatters_by_ext": {
     ".ts": ["prettier"],
     ".tsx": ["prettier"],
@@ -79,6 +80,8 @@ Create a project config at `.opencode/codefmt.json`:
   }
 }
 ```
+
+Replace `<version>` with the installed package version.
 
 Now when an agent edits `*.ts`, `*.tsx`, or `*.js` files using `edit`, `write`, or `apply_patch`, the plugin will:
 
@@ -122,6 +125,10 @@ Important limitations:
 
 Runtime config file name: `codefmt.json`
 
+Published JSON Schema:
+
+- `https://unpkg.com/opencode-format-lint@<version>/codefmt.schema.json`
+
 Load order:
 
 1. `.opencode/codefmt.json` in the current project
@@ -129,10 +136,13 @@ Load order:
 
 The first valid file wins. Config files are not merged across locations. Unknown keys are stripped.
 
+If neither file exists, the plugin creates `~/.config/opencode/codefmt.json` automatically with a pinned `"$schema"` URL for the installed package version.
+
 ### Top-Level Shape
 
 ```json
 {
+  "$schema": "https://unpkg.com/opencode-format-lint@<version>/codefmt.schema.json",
   "formatters_by_ext": {
     ".ts": ["prettier"],
     ".py": ["isort", "black"],
@@ -165,6 +175,8 @@ The first valid file wins. Config files are not merged across locations. Unknown
   }
 }
 ```
+
+The remaining examples omit `"$schema"` for brevity.
 
 ### `formatters_by_ext`
 
@@ -442,6 +454,8 @@ The loader uses the first valid config file it finds:
 2. user `~/.config/opencode/codefmt.json`
 
 If the project config exists and is valid, the user config is not loaded.
+
+If neither config exists yet, the plugin writes the default user config with a version-pinned `"$schema"` URL.
 
 ### My Args Did Not Get Added
 
