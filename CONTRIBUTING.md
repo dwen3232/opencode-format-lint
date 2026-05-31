@@ -37,9 +37,6 @@ bunx vitest run src/__tests__/runner.test.ts -t "prefers a local node_modules bi
 - `src/registry/*.ts`: built-in tool defaults by formatter or linter
 - `src/registry/index.ts`: aggregate built-in tool maps used during config resolution
 - `src/__tests__/*.test.ts`: behavior tests
-- `dist/`: publish artifact built from `src/index.ts`
-
-Do not hand-edit `dist/`.
 
 ## Design Constraints
 
@@ -77,6 +74,7 @@ Each entry defines:
 - `def.require_markers`
 - optional `def.cmd`
 - optional `def.env`
+- optional `def.append_path`
 
 Example formatter entry:
 

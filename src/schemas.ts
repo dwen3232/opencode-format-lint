@@ -26,6 +26,10 @@ export const ToolDefSchema = z.object({
     .record(z.string(), z.string())
     .optional()
     .describe("Environment variables to set for this tool's process."),
+  append_path: z
+    .boolean()
+    .default(true)
+    .describe("If false, do not append the edited file path automatically. Defaults to true."),
 });
 
 export const CodefmtConfigSchema = z.object({

@@ -46,7 +46,8 @@ export function createExecuteToolDef($: BunShell) {
     }
 
     const cmd = resolveCommand(def.cmd ?? name, cwd);
-    const args = [...(def.args ?? []), filePath];
+    const appendPath = def.append_path ?? true;
+    const args = appendPath ? [...(def.args ?? []), filePath] : [...(def.args ?? [])];
 
     const result = await $`${cmd} ${args}`.cwd(cwd).env(def.env).quiet().nothrow();
 

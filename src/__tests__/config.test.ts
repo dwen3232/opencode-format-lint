@@ -143,13 +143,13 @@ describe("resolveToolDef", () => {
   test("user override for unknown tool returns the override as-is", () => {
     const config: CodefmtConfig = {
       formatters: {
-        "my-formatter": { cmd: "my-fmt", args: ["--fix"] },
+        "my-formatter": { cmd: "my-fmt", args: ["--fix"], append_path: false },
       },
     };
 
     const result = resolveToolDef("my-formatter", "formatter", config);
 
-    expect(result).toEqual({ cmd: "my-fmt", args: ["--fix"] });
+    expect(result).toEqual({ cmd: "my-fmt", args: ["--fix"], append_path: false });
   });
 });
 

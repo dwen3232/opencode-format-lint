@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vitest";
 
-import { CodefmtConfigJsonSchema } from "../schemas";
+import { CodefmtConfigJsonSchema, CodefmtConfigSchema } from "../schemas";
 
 describe("CodefmtConfigJsonSchema", () => {
   test("describes the config object structure in draft-07 compatible JSON Schema", () => {
@@ -40,6 +40,7 @@ describe("CodefmtConfigJsonSchema", () => {
                 items: { type: "string" },
               },
               require_markers: { type: "boolean" },
+              append_path: { type: "boolean", default: true },
               env: {
                 type: "object",
                 additionalProperties: { type: "string" },
@@ -49,5 +50,17 @@ describe("CodefmtConfigJsonSchema", () => {
         },
       },
     });
+  });
+
+  test("defaults append_path to true for parsed tool overrides", () => {
+    const result = CodefmtConfigSchema.parse({
+      formatters: {
+        prettier: {
+          args: ["--write"],
+        },
+      },
+    });
+
+    expect(result.formatters?.prettier.append_path).toBe(true);
   });
 });

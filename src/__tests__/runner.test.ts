@@ -284,4 +284,33 @@ describe("runTool", () => {
 
     expect(result).toBe("[ruff] exit code 1");
   });
+
+  test("does not append the file path when append_path is false", async () => {
+    vi.spyOn(fs, "existsSync").mockImplementation((p) => p === "/project/Cargo.toml");
+
+    const shellBackend = makeShell(makeShellOutput(0));
+    const executeToolDef = createExecuteToolDef(shellBackend as any);
+
+    await executeToolDef(
+      "/project/src/lib.rs",
+      {
+        name: "clippy",
+        kind: "linter",
+        def: {
+          cmd: "cargo",
+          args: ["clippy", "--message-format", "short"],
+          markers: ["Cargo.toml"],
+          require_markers: true,
+          append_path: false,
+        },
+      },
+      "/fallback",
+    );
+
+    expect(shellBackend).toHaveBeenCalledWith(expect.anything(), "cargo", [
+      "clippy",
+      "--message-format",
+      "short",
+    ]);
+  });
 });
